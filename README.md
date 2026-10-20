@@ -41,4 +41,7 @@ Itinéraire de référence : [Geoapify](https://www.geoapify.com/) — données 
 
 Prototype de démonstration publique distinct des versions de développement et d'ATLAS FLIGHT. Aucun secret API ni base de données privée n'est fourni dans ce dépôt.
 
-Tous droits réservés sur le code et les contenus originaux, sauf les droits propres aux fournisseurs et aux données tierces indiqués ci-dessus.
+**ATLAS VOYAGEUR**  
+Conception et développement — **Joseph Vincent**  
+Un projet **ATLAS CORE**  
+© 2026 Joseph Vincent — Tous droits réservés sur les créations originales, sous réserve des droits des fournisseurs et contributeurs tiers indiqués ci-dessus.
