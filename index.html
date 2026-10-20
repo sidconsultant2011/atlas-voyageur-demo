@@ -89,8 +89,22 @@ restoreScenario(true);
 
 // Enregistrement PWA uniquement depuis une origine sûre (HTTPS ou localhost).
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost','127.0.0.1'].includes(location.hostname))) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', {scope:'./'}).catch(() => {
-    // L'application reste utilisable en ligne si l'installation PWA échoue.
-  }));
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('./sw.js', {scope:'./', updateViaCache:'none'});
+      if (navigator.onLine) registration.update().catch(()=>{});
+      window.addEventListener('online', () => registration.update().catch(()=>{}));
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!reloaded && navigator.onLine && sessionStorage.getItem('atlas-voyageur-sw-refreshed') !== 'yes') {
+          reloaded = true;
+          sessionStorage.setItem('atlas-voyageur-sw-refreshed','yes');
+          location.reload();
+        }
+      });
+    } catch (_) {
+      // L'application reste consultable si la mise à jour PWA échoue.
+    }
+  });
 }
 </script></body></html>
