@@ -37,6 +37,22 @@ https://sidconsultant2011.github.io/atlas-voyageur-demo/
 
 Itinéraire de référence : [Geoapify](https://www.geoapify.com/) — données géographiques © [contributeurs OpenStreetMap](https://www.openstreetmap.org/copyright).
 
+## Feuille de route — priorité B6.3 INTERNATIONAL
+
+**Décision du 21 octobre 2026 : la prochaine version a pour priorité absolue l'intégration complète des langues FR / EN / RU, avant toute nouvelle fonctionnalité.**
+
+- **Français (FR)** : conserver la version de référence.
+- **English (EN)** : traduire intégralement le parcours et les messages.
+- **Русский (RU)** : traduire intégralement le parcours en alphabet cyrillique.
+- Afficher un sélecteur FR / EN / RU accessible à toutes les étapes.
+- Mémoriser le choix de langue sur l'appareil, y compris hors connexion.
+- Adapter les formats de date et la présentation des horaires à la langue, sans confondre les fuseaux horaires et les heures locales.
+- Traduire les avertissements « données fictives », la rubrique « Découvrir ATLAS VOYAGEUR », les actions, les aides et les messages d'erreur.
+- Préserver le parcours, le calcul de départ, la navigation mobile fixe, les sauvegardes et le fonctionnement hors connexion.
+- Valider les trois langues sur ordinateur et sur iPhone avant toute publication.
+
+**État de diffusion :** la démonstration actuellement accessible à https://voyageur.atlascore.eu/ est en français uniquement. Les versions EN et RU sont prévues, **non encore disponibles**. La B6.2-PUBLIC reste la référence stable pour le retour arrière.
+
 ## Projet
 
 Prototype de démonstration publique distinct des versions de développement et d'ATLAS FLIGHT. Aucun secret API ni base de données privée n'est fourni dans ce dépôt.
