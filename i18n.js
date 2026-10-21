@@ -180,6 +180,7 @@ function select(lang){
  language=lang;
  try{localStorage.setItem('atlas-voyageur-language',lang)}catch(_){}
  sync();
+ window.dispatchEvent(new Event('atlas-language-change'));
 }
 const header=document.querySelector('.app > header');
 if(header){
