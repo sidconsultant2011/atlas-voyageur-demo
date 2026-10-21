@@ -53,6 +53,22 @@ Itinéraire de référence : [Geoapify](https://www.geoapify.com/) — données 
 
 **État de diffusion :** la démonstration actuellement accessible à https://voyageur.atlascore.eu/ est en français uniquement. Les versions EN et RU sont prévues, **non encore disponibles**. La B6.2-PUBLIC reste la référence stable pour le retour arrière.
 
+### Amélioration continue — « Votre avis nous intéresse »
+
+**Décision validée le 21 octobre 2026 :** intégrer un dispositif de collecte de retours utilisateurs à ATLAS VOYAGEUR, en priorité dans le chantier B6.3, sans retarder l'internationalisation FR / EN / RU.
+
+- Un accès discret « Votre avis nous intéresse » depuis l'application.
+- Trois catégories : **suggestion**, **problème rencontré**, **retour d'expérience**.
+- Commentaires **privés**, non publiés automatiquement ; aucun compte requis.
+- Adresse de contact facultative pour réponse éventuelle.
+- Interface intégralement **FR / EN / RU**, accessible sur mobile et adaptée au fonctionnement PWA.
+- Réception effective via un service de formulaire sécurisé compatible avec GitHub Pages ; **aucune collecte annoncée comme active avant tests de transmission**.
+- Mesures anti-spam, information claire sur les données personnelles, limitation des données collectées et modalités de conservation à définir avant activation.
+- Centralisation des retours pour suivre les anomalies, regrouper les suggestions et prioriser les corrections dans la feuille de route.
+- Validation préalable de la confidentialité, de la réception des messages et du traitement des données avant mise en production.
+
+**Statut : exigence adoptée, non développée et non disponible dans la démonstration publique actuelle.**
+
 ## Projet
 
 Prototype de démonstration publique distinct des versions de développement et d'ATLAS FLIGHT. Aucun secret API ni base de données privée n'est fourni dans ce dépôt.
