@@ -114,6 +114,18 @@ Object.assign(messages,{
 "Paris centre → Paris-Orly":["Central Paris → Paris-Orly","Центр Парижа → Париж-Орли"],
 "DÉMONSTRATION PROFESSIONNELLE · B6.2-PUBLIC":["DÉMO · B6.3 DEVELOPMENT","ДЕМО · РАЗРАБОТКА B6.3"]
 });
+Object.assign(messages,{
+". Estimation hors trafic réel.":[". Estimate excludes live traffic.",". Без учёта пробок в реальном времени."],
+"Estimation hors trafic réel.":["Estimate excludes live traffic.","Без учёта пробок в реальном времени."],
+"Porto (OPO) → Paris-Orly (ORY)":["Porto (OPO) → Paris-Orly (ORY)","Порту (OPO) → Париж-Орли (ORY)"],
+"Référence cartographique : 20 min":["Map reference: 20 min","По карте: 20 мин"],
+"Scénario restauré : 35 min":["Scenario restored: 35 min","Сценарий восстановлен: 35 мин"],
+"Sauvegarde non confirmée":["Save not confirmed","Сохранение не подтверждено"],
+"Sauvegarde vérifiée":["Save verified","Сохранение проверено"],
+"Vérifiez les durées et les marges saisies.":["Check entered durations and buffers.","Проверьте время в пути и запас времени."],
+"Non communiquée":["Not provided","Не указан"],
+"Non communiqués":["Not provided","Нет информации"]
+});
 const patterns=[
 [/^(\d+) min$/,(m,n,l)=>l==='en'?n+' min':n+' мин'],
 [/^Rencontre estimée : (.+)$/,(m,time,l)=>l==='en'?'Estimated meeting: '+time:'Ожидаемая встреча: '+time],
@@ -132,6 +144,11 @@ patterns.push(
 [/^Échec de la sauvegarde locale : (.+)$/,(m,e,l)=>l==='en'?'Local save failed: '+e:'Ошибка локального сохранения: '+e],
 [/^Scénario restauré : trajet (\d+) min · départ (.+)\.$/,(m,n,time,l)=>l==='en'?'Scenario restored: '+n+' min travel · departure '+time+'.':'Сценарий восстановлен: дорога '+n+' мин · выезд '+time+'.'],
 [/^Durée personnalisée : (\d+) min · référence cartographique : 20 min\.$/,(m,n,l)=>l==='en'?'Custom: '+n+' min · map reference: 20 min.':'Указано: '+n+' мин · по карте: 20 мин.']
+);
+patterns.push(
+[/^Scénario restauré : (\\d+) min$/,(m,n,l)=>l==='en'?'Scenario restored: '+n+' min':'Сценарий восстановлен: '+n+' мин'],
+[/^Sauvegarde non confirmée$/,(m,l)=>l==='en'?'Save not confirmed':'Сохранение не подтверждено'],
+[/^Stockage local inaccessible : (.+)$/,(m,e,l)=>l==='en'?'Local storage unavailable: '+e:'Локальное хранилище недоступно: '+e]
 );
 const originalNodes=new WeakMap();
 const originAttrs=new WeakMap();
@@ -202,5 +219,5 @@ let stored='fr';
 try{stored=localStorage.getItem('atlas-voyageur-language')||'fr'}catch(_){}
 select(['fr','en','ru'].includes(stored)?stored:'fr');
 new MutationObserver(()=>{if(!running)sync()}).observe(document.body,{subtree:true,childList:true,characterData:true});
-window.ATLAS_I18N={getLanguage:()=>language,setLanguage:select};
+window.ATLAS_I18N={getLanguage:()=>language,setLanguage:select,t:value=>translate(value,language),refresh:sync};
 })();
