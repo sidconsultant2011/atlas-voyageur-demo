@@ -1,6 +1,6 @@
 /* ATLAS VOYAGEUR B6.2-PUBLIC — actualisation en ligne, secours hors-ligne sans API */
-const CACHE = 'atlas-voyageur-public-b62-sticky-all-v8';
-const ASSETS = ['./index.html','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-180.png'];
+const CACHE = 'atlas-voyageur-dev-b63-i18n-v1';
+const ASSETS = ['./index.html','./manifest.webmanifest','./i18n.js','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-180.png'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
