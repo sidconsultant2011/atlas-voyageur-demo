@@ -64,3 +64,14 @@ Relecture directe, dans GitHub, des versions de `index.html`, `i18n.js`, `sw.js`
 - Vérification statique de la syntaxe `index.html` (JavaScript intégré), `i18n.js`, `intro.js` et `sw.js` : aucune erreur détectée.
 
 **Recette restant à faire :** télécharger à nouveau le ZIP de la branche B6.3, actualiser le serveur local PC et vérifier réellement les notifications EN/RU, les textes mixtes de l'itinéraire et le fonctionnement hors connexion après mise à jour. Les tests iPhone demeurent non réalisés. **NO-GO maintenu**, `main` et la démonstration publique restent inchangés.
+
+## Correctif iPhone — 22 octobre 2026
+
+- Paragraphes de « Découvrir ATLAS VOYAGEUR » réunifiés en nœuds de texte cohérents, avec traductions anglaises et russes complètes ; suppression des phrases hybrides sur cette section.
+- Mise en page mobile des trois informations du vol : terminal sur une ligne complète, porte et bagages en deux colonnes, textes russes pouvant revenir à la ligne sans coupure lettre par lettre.
+- Format d'affichage des heures transformé de `17h30` en `17:30` pour EN/RU seulement ; calculs, stockage et champs horaires conservés.
+- Service Worker : cache `atlas-voyageur-dev-b63-mobile-i18n-v5` pour actualiser les ressources après déploiement automatique Cloudflare Pages.
+- Syntaxe JavaScript contrôlée pour `index.html`, `i18n.js`, `intro.js`, `sw.js` : pas d'erreur de syntaxe.
+- **Limite :** impossible de charger l'URL Cloudflare de recette depuis l'outil de consultation web de l'assistant. Les corrections sont présentes sur GitHub, mais le déploiement effectif et le rendu iPhone **doivent être confirmés par navigation sur le site de recette**.
+
+**NO-GO maintenu**, aucune fusion `main` ou modification de la production B6.2 effectuée.
