@@ -84,6 +84,36 @@ const messages = {
 "± 1 heure":["± 1 hour","± 1 час"],
 "± 2 heures":["± 2 hours","± 2 часа"]
 };
+/* Audit B6.3 — compléments pour dates, feedback, messages dynamiques. */
+Object.assign(messages,{
+"Arrivée : 15 mai 2027 à 17 h 35 (heure locale de Paris)":["Arrival: 15 May 2027 at 17:35 (Paris local time)","Прибытие: 15 мая 2027 г. в 17:35 (местное время Парижа)"],
+"15 mai 2027 · données fictives":["15 May 2027 · fictional data","15 мая 2027 г. · вымышленные данные"],
+"3 (fictif)":["3 (fictional)","3 (вымышленный)"],
+"Durée routière à renseigner.":["Please enter travel time.","Укажите время в пути."],
+"Aucune correspondance dans cette démonstration. Essayez DEMO001 ou le 15/05/2027 à 18h30 (± 1 h).":["No match in this demo. Try DEMO001 or 15 May 2027 at 18:30 (± 1 hour).","В этой демонстрации совпадений нет. Попробуйте DEMO001 или 15 мая 2027 г. в 18:30 (± 1 час)."],
+"Aucun résultat local":["No local result","Нет результатов"],
+"Sélectionnez d’abord le vol.":["Select a flight first.","Сначала выберите рейс."],
+"Vérifiez les durées et les marges saisies.":["Check the entered times and buffers.","Проверьте время в пути и запас времени."],
+"Choisissez un vol avant de sauvegarder":["Choose a flight before saving.","Выберите рейс перед сохранением."],
+"Impossible d’enregistrer : vérifiez les durées":["Cannot save: check the times.","Не удалось сохранить: проверьте время."],
+"Aucune sauvegarde locale trouvée sur cette origine.":["No local saved scenario on this site.","На этом сайте нет сохранённого сценария."],
+"Aucune sauvegarde locale":["No saved scenario","Нет сохранённого сценария"],
+"Sauvegarde présente mais valeurs invalides.":["Saved scenario contains invalid values.","Сохранённый сценарий содержит неверные значения."],
+"Sauvegarde invalide":["Invalid saved scenario","Неверные сохранённые данные"],
+"Stockage local inaccessible":["Local storage unavailable","Локальное хранилище недоступно"],
+"Restauration impossible":["Cannot restore scenario","Не удалось восстановить сценарий"],
+"Durée de référence cartographique":["Map reference duration","Время в пути по карте"],
+"Référence : 20 min (itinéraire Geoapify enregistré).":["Reference: 20 min (saved Geoapify route).","По карте: 20 мин (сохранённый маршрут Geoapify)."],
+"Le bon vol. Le bon trajet. Le bon moment.":["The right flight. The right route. The right time.","Нужный рейс. Правильный маршрут. Точное время."],
+"Vous accueillez quelqu'un à l'aéroport ? Avec":["Meeting someone at the airport? With","Встречаете кого-то в аэропорту? С"],
+"ou sans numéro de vol":["or without a flight number","номером рейса или без него"],
+"ATLAS VOYAGEUR vous aide à identifier son arrivée, puis à préparer votre trajet":["ATLAS VOYAGEUR helps you identify their arrival, then plan your journey","ATLAS VOYAGEUR поможет найти информацию о прибытии и спланировать дорогу"],
+"depuis votre propre adresse de départ":["from your own starting address","от вашего адреса отправления"],
+"jusqu'à l'aéroport.":["to the airport.","до аэропорта."],
+"Tracé routier enregistré · sans fond cartographique":["Saved road route · no map background","Сохранённый маршрут · без картографической подложки"],
+"Paris centre → Paris-Orly":["Central Paris → Paris-Orly","Центр Парижа → Париж-Орли"],
+"DÉMONSTRATION PROFESSIONNELLE · B6.2-PUBLIC":["DÉMO · B6.3 DEVELOPMENT","ДЕМО · РАЗРАБОТКА B6.3"]
+});
 const patterns=[
 [/^(\d+) min$/,(m,n,l)=>l==='en'?n+' min':n+' мин'],
 [/^Rencontre estimée : (.+)$/,(m,time,l)=>l==='en'?'Estimated meeting: '+time:'Ожидаемая встреча: '+time],
@@ -92,6 +122,17 @@ const patterns=[
 [/^Scénario restauré : trajet (\d+) min · départ (.+)\.$/,(m,n,time,l)=>l==='en'?'Scenario restored: '+n+' min drive · departure '+time+'.':'Сценарий восстановлен: дорога '+n+' мин · выезд '+time+'.'],
 [/^Enregistré et vérifié : (\d+) min · départ (.+)\.$/,(m,n,time,l)=>l==='en'?'Saved and verified: '+n+' min · departure '+time+'.':'Сохранено и проверено: '+n+' мин · выезд '+time+'.']
 ];
+
+// Audit : traduction des messages générés après interactions.
+patterns.push(
+[/^Rencontre estimée :\s*(.+)$/,(m,time,l)=>l==='en'?'Estimated meeting: '+time:'Предполагаемая встреча: '+time],
+[/^Personnalisé · référence cartographique : 20 min$/,(m,l)=>l==='en'?'Custom · map reference: 20 min':'Указано вручную · по карте: 20 мин'],
+[/^Durée de référence de 20 min rétablie$/,(m,l)=>l==='en'?'Reference travel time restored: 20 min':'Время по карте восстановлено: 20 мин'],
+[/^Sauvegarde vérifiée : (\d+) minutes$/,(m,n,l)=>l==='en'?'Saved and verified: '+n+' minutes':'Сохранено и проверено: '+n+' мин'],
+[/^Échec de la sauvegarde locale : (.+)$/,(m,e,l)=>l==='en'?'Local save failed: '+e:'Ошибка локального сохранения: '+e],
+[/^Scénario restauré : trajet (\d+) min · départ (.+)\.$/,(m,n,time,l)=>l==='en'?'Scenario restored: '+n+' min travel · departure '+time+'.':'Сценарий восстановлен: дорога '+n+' мин · выезд '+time+'.'],
+[/^Durée personnalisée : (\d+) min · référence cartographique : 20 min\.$/,(m,n,l)=>l==='en'?'Custom: '+n+' min · map reference: 20 min.':'Указано: '+n+' мин · по карте: 20 мин.']
+);
 const originalNodes=new WeakMap();
 const originAttrs=new WeakMap();
 const idx={en:0,ru:1};
