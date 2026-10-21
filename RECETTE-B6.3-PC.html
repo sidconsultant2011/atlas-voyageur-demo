@@ -1,0 +1,16 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ATLAS — Recette locale B6.3</title><style>body{background:#09131f;color:#f5f3ef;font:16px system-ui;max-width:900px;margin:2em auto;padding:0 1em}h1{color:#dfb374}button{padding:12px;background:#dfb374;border:0;border-radius:8px;font-weight:bold}iframe{width:100%;height:660px;border:1px solid #607489;border-radius:12px}li{margin:10px 0}code{color:#b4e5e0}</style></head><body>
+<h1>ATLAS VOYAGEUR — RECETTE B6.3 (développement)</h1>
+<p><strong>Site de test LOCAL uniquement.</strong> Ne pas utiliser pour organiser un voyage réel. Aucun résultat ne vaut validation avant contrôle manuel PC et iPhone.</p>
+<p><button id="reload">Réinitialiser l'affichage de prévisualisation</button> <span id="status" role="status"></span></p>
+<iframe id="app" src="./index.html" title="Prévisualisation de la branche B6.3"></iframe>
+<h2>Contrôles manuels PC à consigner</h2><ol>
+<li>Premier affichage de la signature ; continuer puis réactiver/désactiver depuis l'en-tête.</li>
+<li>FR → EN → RU → FR : textes, paragraphes, recherche et messages sans français résiduel.</li>
+<li>Rechercher avec numéro <code>DEMO001</code> puis sans numéro au <code>15/05/2027 18:30 ±1 h</code> ; vérifier un résultat absent.</li>
+<li>Sélectionner DÉMO-001 et vérifier date fictive, terminal et avertissement.</li>
+<li>Changer la durée 20 → 35 minutes ; contrôler l'heure de départ, la sauvegarde et la restauration.</li>
+<li>Défiler jusqu'en bas : les trois boutons restent visibles.</li>
+<li>Après une première visite, couper le réseau puis relancer depuis l'URL locale ; vérifier langue et parcours. Attention, ouvrir le fichier en <code>file://</code> ne teste pas le Service Worker.</li>
+</ol><p><strong>Règle : aucune fusion sur main si un test échoue.</strong></p>
+<script>document.querySelector('#reload').onclick=()=>{document.querySelector('#app').src='./index.html?recette='+Date.now();document.querySelector('#status').textContent='Vue rechargée (les sauvegardes ne sont pas supprimées).'};</script>
+</body></html>
