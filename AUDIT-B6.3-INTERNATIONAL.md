@@ -44,3 +44,13 @@ Relecture directe, dans GitHub, des versions de `index.html`, `i18n.js`, `sw.js`
 - Obtenir validation explicite avant fusion sur `main` et publication sur `voyageur.atlascore.eu`.
 
 **Le formulaire « Votre avis nous intéresse » reste hors périmètre de cette première recette : il vient ensuite.**
+
+## Recette technique intermédiaire — 21 octobre 2026 (après correctifs)
+
+**Correctifs enregistrés sur la branche uniquement :** enrichissement du catalogue `i18n.js` (dates, recherche sans résultat, erreurs, sauvegarde et restauration), complément des motifs dynamiques ; nettoyage des anciens caches `atlas-voyageur-dev-` dans `sw.js`.
+
+**Contrôles statiques réalisés :** analyse de syntaxe JavaScript pour `i18n.js`, `sw.js` et le script embarqué de `index.html` — **aucune erreur de syntaxe détectée** ; présence de `./i18n.js` dans le cache hors connexion ; présence de la navigation sticky et de la logique de calcul d'origine. Le catalogue contient plus de 100 entrées, mais le nombre d'entrées **ne garantit pas** la qualité ni la couverture intégrale.
+
+**Écarts restants :** la localisation repose sur une traduction de nœuds texte et non encore sur une architecture complète par identifiants de messages. Les phrases HTML fragmentées, les chaînes mixtes et des annotations SVG peuvent toujours échapper à la traduction. Le manifeste de PWA demeure principalement en français. Les tests d'exécution avec interactions, la vérification réelle des trois langues, l'affichage mobile, la restauration persistante et le mode hors connexion ne sont pas encore réalisés.
+
+**Décision maintenue : NO-GO.** Ne pas fusionner sur `main`, ne pas annoncer EN/RU comme disponibles, ne pas installer la branche de développement sur l'iPhone utilisé pour la démonstration publique. Prévoir une prévisualisation isolée et une recette automatisée + visuelle avant toute promotion.
