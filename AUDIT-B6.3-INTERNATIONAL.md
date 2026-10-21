@@ -54,3 +54,13 @@ Relecture directe, dans GitHub, des versions de `index.html`, `i18n.js`, `sw.js`
 **Écarts restants :** la localisation repose sur une traduction de nœuds texte et non encore sur une architecture complète par identifiants de messages. Les phrases HTML fragmentées, les chaînes mixtes et des annotations SVG peuvent toujours échapper à la traduction. Le manifeste de PWA demeure principalement en français. Les tests d'exécution avec interactions, la vérification réelle des trois langues, l'affichage mobile, la restauration persistante et le mode hors connexion ne sont pas encore réalisés.
 
 **Décision maintenue : NO-GO.** Ne pas fusionner sur `main`, ne pas annoncer EN/RU comme disponibles, ne pas installer la branche de développement sur l'iPhone utilisé pour la démonstration publique. Prévoir une prévisualisation isolée et une recette automatisée + visuelle avant toute promotion.
+
+## Correctifs linguistiques complémentaires — 21 octobre 2026
+
+- Ajout des traductions **EN/RU** pour les annotations résiduelles du trajet, notamment « Estimation hors trafic réel. » et la ligne d'itinéraire Porto (OPO) → Paris-Orly (ORY).
+- Compléments pour messages de sauvegarde/restauration, notamment le toast « Scénario restauré : 35 min », constaté encore en français pendant la recette russe.
+- `show()` et `storageNote()` traduisent les messages au moment où ils sont affichés ; les notifications dynamiques ne dépendent plus exclusivement du passage de l'observateur de mutations.
+- Nouvelle version du cache `atlas-voyageur-dev-b63-l10n-v4` pour embarquer les changements hors connexion.
+- Vérification statique de la syntaxe `index.html` (JavaScript intégré), `i18n.js`, `intro.js` et `sw.js` : aucune erreur détectée.
+
+**Recette restant à faire :** télécharger à nouveau le ZIP de la branche B6.3, actualiser le serveur local PC et vérifier réellement les notifications EN/RU, les textes mixtes de l'itinéraire et le fonctionnement hors connexion après mise à jour. Les tests iPhone demeurent non réalisés. **NO-GO maintenu**, `main` et la démonstration publique restent inchangés.
