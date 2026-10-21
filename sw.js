@@ -1,5 +1,5 @@
 /* ATLAS VOYAGEUR B6.2-PUBLIC — actualisation en ligne, secours hors-ligne sans API */
-const CACHE = 'atlas-voyageur-public-b62-refresh-v5';
+const CACHE = 'atlas-voyageur-public-b62-duration-v6';
 const ASSETS = ['./index.html','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-180.png'];
 
 self.addEventListener('install', event => {
