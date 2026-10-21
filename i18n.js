@@ -126,6 +126,11 @@ Object.assign(messages,{
 "Non communiquée":["Not provided","Не указан"],
 "Non communiqués":["Not provided","Нет информации"]
 });
+Object.assign(messages,{
+"Vous accueillez quelqu'un à l'aéroport ? Avec ou sans numéro de vol, ATLAS VOYAGEUR vous aide à identifier son arrivée, puis à préparer votre trajet depuis votre propre adresse de départ jusqu'à l'aéroport.":["Meeting someone at the airport? Whether you know their flight number or not, ATLAS VOYAGEUR helps you find their arrival and plan your trip from your starting address to the airport.","Встречаете пассажира в аэропорту? С номером рейса или без него ATLAS VOYAGEUR поможет найти информацию о прибытии и спланировать поездку от вашего адреса до аэропорта."],
+"Cette version publique est une démonstration fictive : un vol simulé, un trajet Paris → Orly préenregistré et un calculateur local. Pas de vols réels, pas de recherche libre d'adresse, aucun appel API et aucune information en direct.":["This is a fictional demonstration: one simulated flight, a saved Paris → Orly route and an on-device calculator. No real flights, free-form address search, API requests or live information.","Это демонстрационная версия с вымышленными данными: один смоделированный рейс, сохранённый маршрут Париж → Орли и локальный калькулятор. Здесь нет реальных рейсов, свободного поиска адресов, запросов к API или данных в реальном времени."],
+"I'm welcoming a traveler.":["I'm picking someone up at the airport.","Я встречаю пассажира."]
+});
 const patterns=[
 [/^(\d+) min$/,(m,n,l)=>l==='en'?n+' min':n+' мин'],
 [/^Rencontre estimée : (.+)$/,(m,time,l)=>l==='en'?'Estimated meeting: '+time:'Ожидаемая встреча: '+time],
@@ -158,10 +163,17 @@ function translate(value,lang){
  if(lang==='fr')return value;
  const clean=value.trim();
  const direct=messages[clean];
- if(direct)return value.replace(clean,direct[idx[lang]]);
- for(const [re,fn] of patterns){const match=clean.match(re);if(match){const r=fn(...match,lang);return value.replace(clean,r);}}
- return value;
+ let translated=direct?value.replace(clean,direct[idx[lang]]):value;
+ if(!direct){
+  for(const [re,fn] of patterns){
+   const match=clean.match(re);
+   if(match){translated=value.replace(clean,fn(...match,lang));break;}
+  }
+ }
+ // Only display formats change; calculation and saved ISO time inputs remain unchanged.
+ return translated.replace(/\b(\d{1,2})h([0-5]\d)\b/g,'$1:$2');
 }
+
 function syncText(node){
  const live=node.nodeValue||'';
  const saved=originalNodes.get(node);
