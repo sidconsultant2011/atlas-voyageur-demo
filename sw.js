@@ -1,5 +1,5 @@
 /* ATLAS VOYAGEUR B6.2-PUBLIC — actualisation en ligne, secours hors-ligne sans API */
-const CACHE = 'atlas-voyageur-dev-b63-l10n-v4';
+const CACHE = 'atlas-voyageur-dev-b63-mobile-i18n-v5';
 const ASSETS = ['./index.html','./manifest.webmanifest','./i18n.js','./intro.js','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-180.png'];
 
 self.addEventListener('install', event => {
