@@ -11,9 +11,9 @@ const style=document.createElement('style');style.textContent=`
 #atlas-opening{position:fixed;inset:0;z-index:1000;background:#09131f;color:#f5f3ef;display:flex;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top,0px)) 20px calc(24px + env(safe-area-inset-bottom,0px));text-align:center}
 #atlas-opening[hidden]{display:none!important}
 #atlas-opening .intro-inner{max-width:520px;width:100%}
-#atlas-opening h2{font-size:clamp(26px,6vw,40px);line-height:1.2;color:#bccad5;margin:20px 0 30px}
- #atlas-opening button:focus-visible{outline:2px solid #bccad5;outline-offset:4px}
-#atlas-opening button{background:#bccad5;color:#09131f;border:0;border-radius:10px;padding:14px 20px;min-height:48px;font-weight:800;width:100%;max-width:380px}
+#atlas-opening h2{font-size:clamp(26px,6vw,40px);line-height:1.2;color:#c6bead;margin:20px 0 30px}
+ #atlas-opening button:focus-visible{outline:2px solid #c6bead;outline-offset:4px}
+#atlas-opening button{background:#c6bead;color:#09131f;border:0;border-radius:10px;padding:14px 20px;min-height:48px;font-weight:800;width:100%;max-width:380px}
 #atlas-opening p{color:#b3c1d1;font-size:13px}
 #atlas-opening .intro-brand{letter-spacing:2px;font-size:17px;font-weight:850}
 #atlas-intro-setting{font-size:12px;border:1px solid #34475d;border-radius:9px;background:#1c2d42;color:#f5f3ef;padding:8px 10px;cursor:pointer}
