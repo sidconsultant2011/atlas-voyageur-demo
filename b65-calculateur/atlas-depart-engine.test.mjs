@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {planDeparture,formatLocal} from './atlas-depart-engine.mjs';
+const base={flight:{status:'airborne',scheduledArrivalUtc:'2027-05-15T15:35:00Z',revisedArrivalUtc:'2027-05-15T15:50:00Z'},road:{originSelected:true,destinationVerified:true,durationSeconds:2100},assumptions:{exitDelayMinutes:40,trafficBufferMinutes:15,otherTravelBufferMinutes:5,meetingMarginMinutes:0}};
+test('revised arrival => 17:35 Paris',()=>{const x=planDeparture(base);assert.equal(x.arrivalKind,'estimated');assert.equal(x.recommendedDepartureUtc,'2027-05-15T15:35:00.000Z');assert.match(x.recommendedDepartureLocal,/17:35/);});
+test('actual arrival is preferred',()=>{const x=planDeparture({...base,flight:{...base.flight,actualArrivalRunwayUtc:'2027-05-15T15:40:00Z'}});assert.equal(x.arrivalKind,'observed');assert.equal(x.recommendedDepartureUtc,'2027-05-15T15:25:00.000Z');});
+test('missing route prevents advice',()=>assert.equal(planDeparture({...base,road:{originSelected:true,destinationVerified:true}}).status,'unavailable'));
+test('cancelled flight prevents advice',()=>assert.equal(planDeparture({...base,flight:{...base.flight,status:'cancelled'}}).status,'unavailable'));
+test('missing origin prevents advice',()=>assert.equal(planDeparture({...base,road:{...base.road,originSelected:false}}).status,'unavailable'));
+test('missing assumptions prevent advice',()=>assert.equal(planDeparture({...base,assumptions:{exitDelayMinutes:40}}).status,'unavailable'));
+test('stale flight prevents advice',()=>assert.equal(planDeparture({...base,flight:{...base.flight,stale:true}}).status,'unavailable'));
+test('Paris winter and summer conversions',()=>{assert.match(formatLocal('2027-01-15T15:35:00Z'),/16:35/);assert.match(formatLocal('2027-07-15T15:35:00Z'),/17:35/);});
+test('spring DST skips 02:30',()=>{assert.match(formatLocal('2027-03-28T00:30:00Z'),/01:30/);assert.match(formatLocal('2027-03-28T01:30:00Z'),/03:30/);});
+test('fall DST repeats 02:30',()=>{assert.match(formatLocal('2027-10-31T00:30:00Z'),/02:30/);assert.match(formatLocal('2027-10-31T01:30:00Z'),/02:30/);});
+test('bare HH:mm is rejected',()=>assert.equal(planDeparture({...base,flight:{scheduledArrivalUtc:'17:35'}}).status,'unavailable'));
+test('road seconds rounded upward',()=>assert.equal(planDeparture({...base,road:{...base.road,durationSeconds:1201}}).roadMinutes,21));
