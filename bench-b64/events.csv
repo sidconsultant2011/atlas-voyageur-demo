@@ -1,0 +1,1 @@
+timestamp_utc,case_id,provider,endpoint,method,http_status,attempt,api_units_reported,geo_credits_reported,billing_evidence,request_id,duration_ms,cache_hit,error_type,notes
