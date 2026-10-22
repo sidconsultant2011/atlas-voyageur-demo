@@ -53,3 +53,13 @@ Source : capture du tableau de bord Geoapify « Utilisation et statistiques », 
 6. Ne déduire aucun tarif commercial de cette seule session. Garder B6.5 en recette et B6.3 en NO-GO.
 
 Aucun essai réel déclenché par la consignation ; aucune fusion sur `main`, aucun achat ni changement de `voyageur.atlascore.eu`.
+
+
+## B6.5 — Adresse utilisateur et trajet dynamique (22 octobre 2026)
+- Fichier `RECETTE-B65-VECTORIELLE.html` : champ « Mon adresse de départ », recherche déclenchée explicitement, sélection parmi les résultats de géocodage Geoapify, puis bouton « Calculer mon trajet vers Paris-Orly ».
+- Les appels de géocodage et de routage sont comptés séparément des demandes de tuiles dans le compteur local de recette. Aucun appel pendant la frappe. Les deux appels consomment potentiellement des crédits Geoapify.
+- La carte affiche la nouvelle géométrie issue de Geoapify et recadre le parcours, si elle a déjà été chargée ; sinon l'affichage se fait au chargement de la carte.
+- Destination B6.5 fixe : **point géographique indicatif d'Orly**, qui n'est pas une entrée terminal ni un parking spécifique. Aucun trafic en temps réel, horaire aérien réel ou temps porte-à-porte garanti.
+- Cette fonction est réservée à la page QA, ne constitue pas une intégration au parcours utilisateur public. Les clés et compteurs restent réservés à la recette.
+- Recette à mener : adresse reconnue, choix explicite, trajet recalculé, départ hors Paris, clavier/tactile iPhone, messages d'erreur, comparaison compteurs fournisseur avant-après. Ne pas déclarer ces tests validés avant observation.
+- B6.3 reste NO-GO ; `main` et le site public inchangés.
