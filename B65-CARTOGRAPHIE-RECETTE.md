@@ -72,3 +72,7 @@ Aucun essai réel déclenché par la consignation ; aucune fusion sur `main`, au
 - Écart avec référence précédente : +92 demandes de tuiles / +23 crédits carte, +5 géocodages / +5 routages, +102 demandes / +33 crédits totaux.
 - **Ces deltas ne sont pas un coût par parcours isolé** ; plusieurs tests ont eu lieu. Conserver la référence historique 139/35, et prendre 231/58 comme nouveau relevé cumulatif avant un test ultérieur.
 - Aucun achat, aucune fusion main, B6.3 NO-GO.
+
+
+## Recette iPhone simplifiée — 22 octobre 2026
+Sur `RECETTE-B65-VECTORIELLE.html`, les éléments prioritaires visibles sont : adresse de départ, recherche, choix d'adresse, calcul, carte. Le lien Geoapify, clé et choix raster/vectoriel sont dans « Réglages de test », et les compteurs dans « Mesures techniques de recette » ; les deux panneaux sont repliés par défaut. Une recherche sans clé ouvre les réglages et affiche une consigne. Les appels restent manuels. Référence officielle mise à jour : 231 demandes de tuiles / 58 crédits, total 244 demandes / 71 crédits. Aucun test iPhone post-modification encore réalisé ; contrôler chargement, recherche, calcul et ergonomie tactile après déploiement. B6.3 NO-GO ; aucun changement main/site public.
