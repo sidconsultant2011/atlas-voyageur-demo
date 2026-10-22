@@ -63,3 +63,12 @@ Aucun essai réel déclenché par la consignation ; aucune fusion sur `main`, au
 - Cette fonction est réservée à la page QA, ne constitue pas une intégration au parcours utilisateur public. Les clés et compteurs restent réservés à la recette.
 - Recette à mener : adresse reconnue, choix explicite, trajet recalculé, départ hors Paris, clavier/tactile iPhone, messages d'erreur, comparaison compteurs fournisseur avant-après. Ne pas déclarer ces tests validés avant observation.
 - B6.3 reste NO-GO ; `main` et le site public inchangés.
+
+
+## Relevé iPhone et fournisseur — 22 octobre 2026
+- L'utilisateur confirme que le **cadrage automatique de la carte est correct** : le cadrage partiel vu en capture provenait d'un zoom manuel ; **ne pas ouvrir de ticket de recadrage** sur cette base.
+- Session iPhone B6.5 : recherche/sélection d'une adresse personnelle et affichage de route vectorielle observés ; compteur local vu : 17 tuiles, 4,25 crédits estimés, 3 appels géocodage/routage.
+- Nouveau relevé officiel Geoapify (période 22/09–22/10/2026 UTC) : **231 demandes de tuiles / 58 crédits de carte**, géocodage **7 demandes / 7 crédits**, routage **6 demandes / 6 crédits**, **244 demandes / 71 crédits** au total.
+- Écart avec référence précédente : +92 demandes de tuiles / +23 crédits carte, +5 géocodages / +5 routages, +102 demandes / +33 crédits totaux.
+- **Ces deltas ne sont pas un coût par parcours isolé** ; plusieurs tests ont eu lieu. Conserver la référence historique 139/35, et prendre 231/58 comme nouveau relevé cumulatif avant un test ultérieur.
+- Aucun achat, aucune fusion main, B6.3 NO-GO.
