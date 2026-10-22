@@ -127,7 +127,7 @@ Object.assign(messages,{
 "Non communiqués":["Not provided","Нет информации"]
 });
 Object.assign(messages,{
-"Cette version publique est une ":["This public version is a ","Эта общедоступная версия — "],
+"Cette version publique est une":["This public version is a ","Эта общедоступная версия — "],
 "démonstration fictive":["fictional demonstration","демонстрация с вымышленными данными"],
 ": un vol simulé, un trajet Paris → Orly préenregistré et un calculateur local. Pas de vols réels, pas de recherche libre d'adresse, aucun appel API et aucune information en direct.":[": one simulated flight, a saved Paris → Orly route and an on-device calculator. No real flights, free-form address search, API requests or live information.",": один смоделированный рейс, сохранённый маршрут Париж → Орли и локальный калькулятор. Нет реальных рейсов, свободного поиска адресов, запросов к API или данных в реальном времени."],
 "Vous accueillez quelqu'un à l'aéroport ? Avec ou sans numéro de vol, ATLAS VOYAGEUR vous aide à identifier son arrivée, puis à préparer votre trajet depuis votre propre adresse de départ jusqu'à l'aéroport.":["Meeting someone at the airport? Whether you know their flight number or not, ATLAS VOYAGEUR helps you find their arrival and plan your trip from your starting address to the airport.","Встречаете пассажира в аэропорту? С номером рейса или без него ATLAS VOYAGEUR поможет найти информацию о прибытии и спланировать поездку от вашего адреса до аэропорта."],
