@@ -36,3 +36,20 @@ Le prototype offre un sélecteur entre fond de référence raster `dark-matter` 
 Page distincte : `RECETTE-B65-VECTORIELLE.html`. Le sélecteur permet de comparer Geoapify MapLibre vectoriel (style JSON `dark-matter-brown`) avec le raster standard. Libellés des couches `symbol` renforcés à au moins 14–16px, halo et couleur platine. Même tracé Paris centre → Orly, pas de géocodage / routage supplémentaire.
 Compteur local des requêtes `Tile` (Geoapify) et estimation théorique à 0,25 crédit / demande. Il ne reflète pas directement la facture, car le cache et la comptabilisation provider peuvent diverger.
 **Point de référence officiel Geoapify avant nouvel essai :** 63 demandes API, 18 crédits au total, dont 60 demandes de tuiles de carte / 15 crédits. Relever de nouveau après session : incréments de tuiles et crédits d'abord, puis inspecter lisibilité FR/EN/RU, zoom et affichage mobile. Test non encore réalisé. Aucune nouvelle clé stockée; carte inactive par défaut. Branche uniquement et aucun GO production.
+
+## Référence officielle gelée — 22 octobre 2026 (avant le prochain essai contrôlé)
+Source : capture du tableau de bord Geoapify « Utilisation et statistiques », période 22 septembre au 22 octobre 2026 (UTC).
+- Tuiles cartographiques : **139 demandes**, **35 crédits**.
+- Total toutes API : **142 demandes**, **38 crédits**.
+- Géocodage : 2 demandes, 2 crédits ; routage : 1 demande, 1 crédit.
+- Quota gratuit affiché : 3 000 crédits par jour.
+
+### Protocole du prochain essai vectoriel isolé
+1. Avant l'essai, contrôler les compteurs officiels : si différents de 139 / 35, noter le nouveau point de départ (ne pas imputer les écarts antérieurs à l'essai).
+2. Ouvrir la seule page `RECETTE-B65-VECTORIELLE.html` depuis le dernier déploiement Cloudflare de la branche B6.5.
+3. Sélectionner explicitement le mode **VECTORIELLE**, saisir la clé localement et charger **une seule fois** ; ne pas zoomer, déplacer, rafraîchir ni ouvrir d'autres cartes pendant la mesure.
+4. Noter les compteurs locaux (réseau de tuiles et crédits *estimés*), puis relever les compteurs officiels après actualisation du fournisseur. Noter le délai et les erreurs.
+5. Consommation fournisseur attribuable à cette session **seulement si** aucune autre utilisation ni mise à jour retardée n'est constatée : Δ demandes tuiles et Δ crédits tuiles. Sinon : « non isolable ».
+6. Ne déduire aucun tarif commercial de cette seule session. Garder B6.5 en recette et B6.3 en NO-GO.
+
+Aucun essai réel déclenché par la consignation ; aucune fusion sur `main`, aucun achat ni changement de `voyageur.atlascore.eu`.
