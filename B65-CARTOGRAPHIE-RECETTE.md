@@ -27,3 +27,7 @@ Statut : **prototype isolé, NO-GO production**. Branche `feature/b6-5-cartograp
 Geoapify, fenêtre 22 septembre–22 octobre 2026 : 3 demandes, 3 crédits, soit géocodage 2/2, routage 1/1 et tuiles 0/0. Plafond gratuit 3 000 crédits quotidiens.
 
 B6.4 conserve son banc de mesure indépendant. B6.3 et `main` restent inchangés. L'URL publique `voyageur.atlascore.eu` reste sur B6.2.
+
+
+## Variante CARTE NETTE — 22 octobre 2026
+Le prototype offre un sélecteur entre fond de référence raster `dark-matter` standard et nouvelle variante raster Geoapify `dark-matter-brown` en `@2x` pour les écrans HiDPI. Chaque changement arrête la carte et remet le compteur local à zéro. L'itinéraire GeoJSON et les marqueurs sont conservés. Comparer à écran équivalent, sans zoom ni déplacement supplémentaire : référence observée 36 demandes de tuiles, 9 crédits *estimés*, zéro crédit tuiles encore enregistré dans le tableau de bord Geoapify. Les deux sessions sont des essais distincts; ne pas affirmer que l'une coûte davantage tant que les relevés fournisseur ne sont pas disponibles. Le mode @2x est une meilleure résolution raster, pas une promesse de textes vectoriels redimensionnables. Aucun chargement automatique.
