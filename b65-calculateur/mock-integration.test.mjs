@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {simulatePickup} from './mock-integration.mjs';
+import {adaptAeroDataBoxFixture,adaptGeoapifyFixture,mockFlights,mockRoutes} from './mock-adapters.mjs';
+test('delayed + Rozay → 17:25 Paris',()=>{const r=simulatePickup();assert.equal(r.recommendation.recommendedDepartureUtc,'2027-05-15T15:25:00.000Z');assert.match(r.recommendation.recommendedDepartureLocal,/17:25/);assert.equal(r.road.distanceMeters,65100);});
+test('landed uses confirmed runway',()=>{const r=simulatePickup({flightScenario:'landed'});assert.equal(r.recommendation.arrivalKind,'observed');assert.equal(r.recommendation.recommendedDepartureUtc,'2027-05-15T15:15:00.000Z');});
+test('scheduled flight ignores unconfirmed runway',()=>{const r=simulatePickup({flightScenario:'unconfirmed'});assert.equal(r.recommendation.arrivalKind,'scheduled');assert.equal(r.flight.actualArrivalRunwayUtc,null);});
+test('cancelled yields no departure',()=>{const r=simulatePickup({flightScenario:'cancelled'});assert.equal(r.recommendation.status,'unavailable');assert.ok(r.recommendation.errors.includes('FLIGHT_NOT_SERVICEABLE'));});
+test('stale yields no departure',()=>assert.ok(simulatePickup({flightScenario:'stale'}).recommendation.errors.includes('FLIGHT_STALE')));
+test('missing arrival yields no departure',()=>assert.ok(simulatePickup({flightScenario:'missing'}).recommendation.errors.includes('ARRIVAL_UNAVAILABLE')));
+test('missing route yields no departure',()=>assert.ok(simulatePickup({routeScenario:'unavailable'}).recommendation.errors.includes('ROUTE_UNAVAILABLE')));
+test('origin must be selected',()=>assert.ok(simulatePickup({routeScenario:'noOrigin'}).recommendation.errors.includes('ORIGIN_NOT_SELECTED')));
+test('destination must be verified',()=>assert.ok(simulatePickup({routeScenario:'noDestination'}).recommendation.errors.includes('DESTINATION_NOT_VERIFIED')));
+test('change of route changes departure',()=>{const a=simulatePickup(),b=simulatePickup({routeScenario:'paris'});assert.notEqual(a.recommendation.recommendedDepartureUtc,b.recommendation.recommendedDepartureUtc);assert.equal(b.recommendation.recommendedDepartureUtc,'2027-05-15T15:50:00.000Z');});
+test('untrusted raw runway timestamp cannot confirm landing',()=>{const f=adaptAeroDataBoxFixture({...mockFlights.landed,status:'airborne'});assert.equal(f.actualArrivalRunwayUtc,null);});
+test('invalid provider values are null, not zero',()=>{const r=adaptGeoapifyFixture({...mockRoutes.rozay,features:[{properties:{time:-4,distance:NaN}}]});assert.equal(r.durationSeconds,null);assert.equal(r.distanceMeters,null);});
+test('unknown fixture rejected',()=>assert.throws(()=>simulatePickup({flightScenario:'not-a-flight'}),RangeError));
