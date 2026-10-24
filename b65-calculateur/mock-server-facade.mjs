@@ -1,9 +1,10 @@
+import {randomUUID} from 'node:crypto';
 /** B6.5 server facade MOCK ONLY. In-process contract; no HTTP listeners, fetch, or secrets. */
 import {createJourneyController} from './journey-controller.mjs';
 import {mockFlights,mockRoutes} from './mock-adapters.mjs';
 export function createMockFacade({now=()=>Date.now(),budget=20,cacheMs=300000,maxCallsPerSession=5}={}){
  if(!Number.isFinite(budget)||budget<0||!Number.isFinite(cacheMs)||cacheMs<0||!Number.isFinite(maxCallsPerSession)||maxCallsPerSession<1)throw new RangeError('Invalid limits');
- const sessions=new Map(),cache=new Map();let spent=0,seq=0;
+ const sessions=new Map(),cache=new Map();let spent=0;
  const response=(status,data=null,error=null)=>({httpStatus:status,status:status<400?'ok':'unavailable',data,errors:error?[error]:[]});
  const error=(status,code)=>response(status,null,{code});
  const access=(id,token)=>{
@@ -24,7 +25,7 @@ export function createMockFacade({now=()=>Date.now(),budget=20,cacheMs=300000,ma
  const createSession=({ownerToken,locale='fr'}={})=>{
   if(typeof ownerToken!=='string'||ownerToken.length<12)return error(401,'AUTH_REQUIRED');
   if(!['fr','en','ru'].includes(locale))return error(400,'INVALID_INPUT');
-  const id='mock-journey-'+(++seq),token='mock-session-'+seq+'-'+ownerToken;
+  const id='mock-journey-'+randomUUID(),token='mock-session-'+randomUUID();
   sessions.set(id,{token,controller:createJourneyController(),expiresAt:now()+3600000,calls:0,selected:null});
   return response(201,{journeyId:id,sessionToken:token,expiresAtUtc:new Date(now()+3600000).toISOString()});
  };
