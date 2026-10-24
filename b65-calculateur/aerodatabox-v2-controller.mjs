@@ -19,6 +19,7 @@ export function applyAeroDataBoxV2Offline(controller,records,{
   number:f.flightNumber,status:f.status==='uncertain'?'unknown':f.status,
   stale:freshness!=='fresh'||f.status==='uncertain'||f.status==='unknown',
   departure:{airport:{iata:f.originIata}},
+  destination:{iata:f.destinationIata},
   arrival:{airport:{iata:f.destinationIata},
    scheduledTime:f.scheduledArrivalUtc?{utc:f.scheduledArrivalUtc}:undefined,
    revisedTime:f.revisedArrivalUtc?{utc:f.revisedArrivalUtc}:undefined}
