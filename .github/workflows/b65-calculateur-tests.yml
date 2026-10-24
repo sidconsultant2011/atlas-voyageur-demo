@@ -18,4 +18,4 @@ jobs:
         with:
           node-version: '22'
       - name: Tests calculateur sans API
-        run: node --test b65-calculateur/atlas-depart-engine.test.mjs
+        run: node --test b65-calculateur/*.test.mjs
