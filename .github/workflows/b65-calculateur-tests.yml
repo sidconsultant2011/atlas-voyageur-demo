@@ -5,6 +5,7 @@ on:
       - feature/b6-5-cartographie-interactive
     paths:
       - 'b65-calculateur/**'
+      - 'RECETTE-B65-PARCOURS-COMPLET.html'
       - '.github/workflows/b65-calculateur-tests.yml'
   workflow_dispatch:
 permissions:
