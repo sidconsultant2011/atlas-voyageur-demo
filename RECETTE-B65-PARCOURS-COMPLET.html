@@ -5,39 +5,44 @@
 <section class="panel"><h2>3. Quand dois-je partir ?</h2><div id="result" class="result" role="status" aria-live="polite"><small>Départ conseillé — calcul indicatif</small><strong id="departure">—</strong><small id="date">—</small></div><p id="explanation" class="minor"></p><details><summary>Voir les hypothèses de calcul — recette</summary><p class="minor" id="details"></p><p class="minor">Le résultat dépend d'un vol fictif, d'un temps de route simulé et de marges personnelles. Il ne constitue pas un conseil utilisable pour aller à l'aéroport.</p></details></section>
 <footer class="minor"><a href="./COCKPIT-B65.html">← Cockpit de recette</a><p>Conception et développement — Joseph Vincent · ATLAS CORE · © 2026 Joseph Vincent.</p><p>B6.3 NO-GO · main et site public inchangés · aucun achat.</p></footer></main>
 <script type="module">
-import {planDeparture,formatLocal} from './b65-calculateur/atlas-depart-engine.mjs';
+import {formatLocal} from './b65-calculateur/atlas-depart-engine.mjs';
+import {createJourneyController} from './b65-calculateur/journey-controller.mjs';
 const $=id=>document.getElementById(id);
-const base='2027-05-15T15:35:00Z';
-const flightScenarios={
-revised:{status:'airborne',scheduledArrivalUtc:base,revisedArrivalUtc:'2027-05-15T15:50:00Z'},
-actual:{status:'arrived',scheduledArrivalUtc:base,revisedArrivalUtc:'2027-05-15T15:50:00Z',actualArrivalRunwayUtc:'2027-05-15T15:40:00Z'},
-scheduled:{status:'scheduled',scheduledArrivalUtc:base},
-cancelled:{status:'cancelled',scheduledArrivalUtc:base},missing:{status:'unknown'},stale:{status:'airborne',scheduledArrivalUtc:base,stale:true}
-};
-const origins={rozay:{name:'Rozay-en-Brie',seconds:2700},paris:{name:'Paris centre',seconds:1200},unknown:{name:'Adresse non renseignée',seconds:null}};
+const controller=createJourneyController();
+const scenarioMap={revised:'delayed',actual:'landed',scheduled:'unconfirmed',cancelled:'cancelled',missing:'missing',stale:'stale'};
+const origins={rozay:'Rozay-en-Brie',paris:'Paris centre',unknown:'Adresse non renseignée'};
 const titles={observed:'Atterrissage confirmé (fictif)',estimated:'Arrivée révisée',scheduled:'Arrivée prévue',unknown:'Inconnue'};
 function dateLocal(utc){return utc?formatLocal(utc,'Europe/Paris','fr-FR'):'—'}
-function calculate(){
- const key=$('scenario').value,flight=flightScenarios[key],o=origins[$('origin').value];$('from').textContent=o.name;
- const vals=['exit','traffic','buffer','margin'].map(k=>$ (k).value.trim()===''?NaN:Number($(k).value));
- const assumptions={exitDelayMinutes:vals[0],trafficBufferMinutes:vals[1],otherTravelBufferMinutes:vals[2],meetingMarginMinutes:vals[3]};
- const road={originSelected:!!o.seconds,destinationVerified:true,durationSeconds:o.seconds};
- const result=planDeparture({flight,road,assumptions,displayZone:'Europe/Paris'});
- $('basis').textContent=titles[result.arrivalKind];
+function readMargins(){
+ const n=id=>$(id).value.trim()===''?NaN:Number($(id).value);
+ return {exitDelayMinutes:n('exit'),trafficBufferMinutes:n('traffic'),otherTravelBufferMinutes:n('buffer'),meetingMarginMinutes:n('margin')};
+}
+function render(){
+ const state=controller.getState(),result=state.recommendation,flight=state.flight||{};
+ $('from').textContent=origins[$('origin').value];
+ $('basis').textContent=titles[result.arrivalKind||'unknown']||titles.unknown;
  const arrival=result.arrivalBasisUtc||flight.revisedArrivalUtc||flight.scheduledArrivalUtc;
  $('arrival').textContent=arrival?new Intl.DateTimeFormat('fr-FR',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}).format(new Date(arrival)):'—';
  if(result.status==='indicative'){
  const display=new Intl.DateTimeFormat('fr-FR',{hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZone:'Europe/Paris'}).format(new Date(result.recommendedDepartureUtc));
  $('departure').textContent=display;$('date').textContent=dateLocal(result.recommendedDepartureUtc);
  $('explanation').textContent='Rendez-vous estimé : '+dateLocal(result.expectedMeetingUtc)+'. Trajet '+result.roadMinutes+' min, marges '+result.buffersMinutes+' min. Simulation uniquement.';
- $('details').textContent='Base '+result.arrivalKind+' : '+dateLocal(result.arrivalBasisUtc)+' ; sortie voyageur '+result.exitDelayMinutes+' min ; trajet '+result.roadMinutes+' min ; marges '+result.buffersMinutes+' min. Heure recommandée en Europe/Paris.';
+ $('details').textContent='Base '+result.arrivalKind+' : '+dateLocal(result.arrivalBasisUtc)+' ; sortie voyageur '+result.exitDelayMinutes+' min ; trajet '+result.roadMinutes+' min ; marges '+result.buffersMinutes+' min. Calcul par le contrôleur B6.5.';
  }else{
  $('departure').textContent='—';$('date').textContent='Conseil suspendu';
- const msgs={ARRIVAL_UNAVAILABLE:'Arrivée inconnue',FLIGHT_NOT_SERVICEABLE:'Vol annulé ou détourné',FLIGHT_STALE:'Données périmées',ORIGIN_NOT_SELECTED:'Adresse non choisie',DESTINATION_NOT_VERIFIED:'Destination non confirmée',ROUTE_UNAVAILABLE:'Trajet indisponible'};
- $('explanation').textContent=result.errors.map(e=>msgs[e]||'Paramètre manquant : '+e).join(' · ');$('details').textContent='Aucune heure inventée lorsque des informations essentielles sont manquantes.';
+ const msgs={FLIGHT_UNAVAILABLE:'Vol indisponible',ARRIVAL_UNAVAILABLE:'Arrivée inconnue',FLIGHT_NOT_SERVICEABLE:'Vol annulé ou détourné',FLIGHT_STALE:'Données périmées',ORIGIN_NOT_SELECTED:'Adresse non choisie',DESTINATION_NOT_VERIFIED:'Destination non confirmée',ROUTE_UNAVAILABLE:'Trajet indisponible'};
+ $('explanation').textContent=(result.errors||[]).map(e=>msgs[e]||'Paramètre manquant : '+e).join(' · ');
+ $('details').textContent='Aucune heure inventée lorsque des informations essentielles sont manquantes.';
  }
 }
-$('calculate').addEventListener('click',calculate);
-for(const id of ['scenario','origin','exit','traffic','buffer','margin'])$(id).addEventListener('change',calculate);
-calculate();
+function onFlight(){controller.selectFlightFixture(scenarioMap[$('scenario').value]);render()}
+function onRoute(){controller.invalidateRoute();const name=$('origin').value;controller.selectRouteFixture(name==='unknown'?'noOrigin':name);render()}
+function onMargins(){controller.setAssumptions(readMargins());render()}
+$('scenario').addEventListener('change',onFlight);
+$('origin').addEventListener('change',onRoute);
+for(const id of ['exit','traffic','buffer','margin'])$(id).addEventListener('change',onMargins);
+$('calculate').addEventListener('click',onMargins);
+controller.selectFlightFixture(scenarioMap[$('scenario').value]);
+controller.selectRouteFixture($('origin').value);
+onMargins();
 </script></body></html>
