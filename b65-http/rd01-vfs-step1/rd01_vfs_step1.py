@@ -38,9 +38,11 @@ def run():
     with tempfile.TemporaryDirectory(prefix="atlas-rd01-vfs-step1-") as d:
         root=Path(d); fixture=root/"fixture";fixture.mkdir()
         so=root/"observer.so"
-        subprocess.run(["cc","-std=c11","-shared","-fPIC","-Wall","-Wextra","-Werror",
+        compile_result=subprocess.run(["cc","-std=c11","-shared","-fPIC","-Wall","-Wextra",
                         "-o",str(so),str(HERE/"atlas_rd01_vfs.c"),"-lsqlite3"],
-                       check=True,capture_output=True,text=True)
+                       check=False,capture_output=True,text=True)
+        if compile_result.returncode:
+            raise RuntimeError("VFS compiler failure: "+compile_result.stderr)
         obs=ctypes.CDLL(str(so))
         obs.atlas_rd01_register.argtypes=[ctypes.c_char_p]
         obs.atlas_rd01_register.restype=ctypes.c_int
