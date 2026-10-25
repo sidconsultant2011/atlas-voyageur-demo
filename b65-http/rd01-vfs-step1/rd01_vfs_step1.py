@@ -126,7 +126,8 @@ def run():
                           "Aucun journal chaud après panne conservé",
                           "Pas de durabilité physique démontrée"]}
         # G05: publish exactly the existing clean fixture archive, with a manifest.
-        # Do not open either original SQLite file before copying.\n        destination=os.environ.get("ATLAS_RD01_G05_OUTPUT")\n        if destination:
+        # Do not open either original SQLite file before copying.
+        destination=os.environ.get("ATLAS_RD01_G05_OUTPUT")\n        if destination:
             out=Path(destination).resolve()
             if out.exists():
                 raise RuntimeError("G05 destination must not exist: "+str(out))
@@ -141,8 +142,8 @@ def run():
                       "files":manifest,"environment":environment,
                       "database_state":invariant,"integrity_check":integrity,
                       "no_hot_journals":True,"no_crash_recovery":True}
-            (out/"manifest.json").write_text(json.dumps(snapshot,indent=2,sort_keys=True)+"\\n",encoding="utf-8")
-            (out/"proof.json").write_text(json.dumps(proof,indent=2,sort_keys=True)+"\\n",encoding="utf-8")
+            (out/"manifest.json").write_text(json.dumps(snapshot,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+            (out/"proof.json").write_text(json.dumps(proof,indent=2,sort_keys=True)+"\n",encoding="utf-8")
             for item in manifest:
                 for directory in ("capture_brute","recuperation_travail"):
                     saved=out/directory/item["name"]
