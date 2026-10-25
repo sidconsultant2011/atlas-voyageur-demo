@@ -8,7 +8,7 @@
 #define MAX_FILES 16
 #define MAX_BYTES (1024*1024)
 typedef struct {sqlite3_file base; sqlite3_file *inner; int slot;} Obs;
-typedef struct {char path[1024]; unsigned char *data,*present; size_t size; int generation,kind,closed,deleted,error,writes,truncates;} Record;
+typedef struct {char path[1024]; unsigned char *data,*present; size_t size; int generation,kind,closed,deleted,error,writes,truncates,close_called,close_known,close_rc;} Record;
 static sqlite3_vfs *parent; static sqlite3_vfs wrapper;
 static Record rec[MAX_FILES]; static int used=0,overflow=0;
 static int kind_for(int f){if(f&SQLITE_OPEN_MASTER_JOURNAL)return 2;if(f&SQLITE_OPEN_MAIN_JOURNAL)return 1;return 0;}
@@ -22,7 +22,26 @@ static int record_open(const char*z,int kind){
  if(!r->data||!r->present){overflow=1;r->error=1;}
  return i;
 }
-static int cl(sqlite3_file*f){Obs*w=(Obs*)f;int r=w->inner->pMethods->xClose(w->inner);if(w->slot>=0)rec[w->slot].closed=1;free(w->inner);return r;}
+/* C03-R03: the evidence records invocation, known native result and success separately.
+   A failed or unknown close can never be a positive lifecycle attestation. */
+static int record_close_result(int slot,int native_rc,int known){
+ if(slot>=0 && slot<used){
+  Record*r=&rec[slot];
+  r->close_called=1;
+  r->close_known=known?1:0;
+  r->close_rc=known?native_rc:0;
+  r->closed=(known && native_rc==SQLITE_OK)?1:0;
+  if(!r->closed)r->error=1;
+ }
+ return native_rc;
+}
+static int cl(sqlite3_file*f){
+ Obs*w=(Obs*)f;
+ int r=w->inner->pMethods->xClose(w->inner);
+ record_close_result(w->slot,r,1);
+ free(w->inner);
+ return r;
+}
 static int rd(sqlite3_file*f,void*b,int n,sqlite3_int64 o){Obs*w=(Obs*)f;return w->inner->pMethods->xRead(w->inner,b,n,o);}
 static int wr(sqlite3_file*f,const void*b,int n,sqlite3_int64 o){
  Obs*w=(Obs*)f;int ok=w->inner->pMethods->xWrite(w->inner,b,n,o);
@@ -90,6 +109,17 @@ int c03_test_open(const char*z,int kind,int closed){
  int slot=record_open(z,kind);
  if(slot>=0)rec[slot].closed=closed?1:0;
  return slot;
+}
+/* Fictional seam: a supplied native return code is not a real filesystem failure. */
+int c03_test_close(int slot,int native_rc,int known){
+ return record_close_result(slot,native_rc,known);
+}
+int c03_close_info(int slot,int*called,int*known,int*result){
+ if(slot<0||slot>=used||!called||!known||!result)return -1;
+ *called=rec[slot].close_called;
+ *known=rec[slot].close_known;
+ *result=rec[slot].close_rc;
+ return 0;
 }
 int c03_test_delete(const char*z,int native_result){
  return attribute_delete(z,native_result);
