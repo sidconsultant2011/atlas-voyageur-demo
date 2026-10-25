@@ -50,6 +50,55 @@ class C03Passive(unittest.TestCase):
                 with self.assertRaises(AssertionError):
                     validate_deletion_attribution(values)
 
+    def test_r01_one_compatible_incarnation(self):
+        proof = reciprocal_certificate(fictional_entries(), MAIN, ATTACHED, 4096)
+        self.assertEqual([w["journal_generation"] for w in proof["provenance"]], [1, 2])
+
+    def test_r01_historical_incarnation_discriminated_by_references(self):
+        e = fictional_entries()
+        old = dict(e[1], generation=0, data=b"\\x00" * 512,
+                   mask=b"\\x00" * 512, deleted=1, closed=1)
+        e.append(old)
+        proof = reciprocal_certificate(e, MAIN, ATTACHED, 4096)
+        self.assertEqual(proof["provenance"][0]["journal_generation"], 1)
+
+    def test_r01_indistinguishable_compatible_incarnations_rejected(self):
+        e = fictional_entries()
+        e.append(dict(e[1], generation=0))
+        with self.assertRaisesRegex(AssertionError, "plusieurs incarnations"):
+            reciprocal_certificate(e, MAIN, ATTACHED, 4096)
+
+    def test_r01_missing_participant_rejected(self):
+        e = fictional_entries()
+        e.pop(2)
+        with self.assertRaises(AssertionError):
+            reciprocal_certificate(e, MAIN, ATTACHED, 4096)
+
+    def test_r01_incompatible_reciprocal_reference_rejected(self):
+        e = fictional_entries()
+        e[1]["data"] = e[1]["data"].replace(S.encode(), b"X" * len(S))
+        with self.assertRaises(AssertionError):
+            reciprocal_certificate(e, MAIN, ATTACHED, 4096)
+        e = fictional_entries()
+        e[0]["data"] = e[0]["data"].replace((str(MAIN)+"-journal").encode(),
+                                             b"X" * len(str(MAIN)+"-journal"))
+        with self.assertRaises(AssertionError):
+            reciprocal_certificate(e, MAIN, ATTACHED, 4096)
+
+    def test_r01_recreated_or_replaced_without_continuity_rejected(self):
+        e = fictional_entries()
+        newer = dict(e[1], generation=4, data=b"", mask=b"",
+                     deleted=0, closed=1)
+        e.append(newer)
+        with self.assertRaisesRegex(AssertionError, "recréation/remplacement"):
+            reciprocal_certificate(e, MAIN, ATTACHED, 4096)
+
+    def test_r01_incomplete_incarnation_rejected(self):
+        e = fictional_entries()
+        e[1]["mask"] = e[1]["mask"][:-12] + b"\\x00" * 12
+        with self.assertRaises(AssertionError):
+            reciprocal_certificate(e, MAIN, ATTACHED, 4096)
+
     def test_normal_commit_real_sqlite(self):
         proof = run()
         self.assertEqual(proof["verdict"], "RECONSTRUIT_BANC_FICTIF")
