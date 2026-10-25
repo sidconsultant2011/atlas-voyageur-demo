@@ -110,7 +110,7 @@ def run():
         if invariant!=[1,"fake"] or integrity!=["ok","ok"]: raise AssertionError("G05: invalid work-copy")
         if any(sha(root/"capture_brute"/e["name"])!=e["sha256"] for e in manifest):
             raise AssertionError("G05: raw archive changed")
-        return {"environment":environment,
+        proof={"environment":environment,
                 "G01":{"status":"demontre_dans_cet_environnement","same_engine":same},
                 "G02":{"status":"demontre_pour_ouvertures_observees","databases":sorted(dbs),
                        "journal_files":sorted(journals),
@@ -125,6 +125,32 @@ def run():
                           "Pas de preuve d'adoption VFS par _persistent_journey()",
                           "Aucun journal chaud après panne conservé",
                           "Pas de durabilité physique démontrée"]}
+        # G05: publish exactly the existing clean fixture archive, with a manifest.
+        # Do not open either original SQLite file before copying.\n        destination=os.environ.get("ATLAS_RD01_G05_OUTPUT")\n        if destination:
+            out=Path(destination).resolve()
+            if out.exists():
+                raise RuntimeError("G05 destination must not exist: "+str(out))
+            if out == root or root in out.parents:
+                raise RuntimeError("G05 destination must be outside temporary workspace")
+            out.mkdir(parents=True)
+            shutil.copytree(root/"capture_brute",out/"capture_brute")
+            shutil.copytree(root/"recuperation_travail",out/"recuperation_travail")
+            snapshot={"schema":"atlas-rd01-g05-v1","nature":"bases fictives propres, sans panne",
+                      "source_commit":os.environ.get("GITHUB_SHA","local-non-versionne"),
+                      "source_run":os.environ.get("GITHUB_RUN_ID","local"),
+                      "files":manifest,"environment":environment,
+                      "database_state":invariant,"integrity_check":integrity,
+                      "no_hot_journals":True,"no_crash_recovery":True}
+            (out/"manifest.json").write_text(json.dumps(snapshot,indent=2,sort_keys=True)+"\\n",encoding="utf-8")
+            (out/"proof.json").write_text(json.dumps(proof,indent=2,sort_keys=True)+"\\n",encoding="utf-8")
+            for item in manifest:
+                for directory in ("capture_brute","recuperation_travail"):
+                    saved=out/directory/item["name"]
+                    if saved.stat().st_size!=item["size"] or sha(saved)!=item["sha256"]:
+                        raise AssertionError("G05 archived bytes differ: "+str(saved))
+            proof["G05"]["persistent_output"]=str(out)
+            proof["G05"]["persisted_files_verified"]=2*len(manifest)
+        return proof
 
 if __name__=="__main__":
     r=run()
