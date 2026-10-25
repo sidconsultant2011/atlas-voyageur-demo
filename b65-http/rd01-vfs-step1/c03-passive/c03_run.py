@@ -110,8 +110,17 @@ def reciprocal_certificate(entries, main_path, attached_path, page_size):
             "provenance": witnesses}
 
 def validate_deletion_attribution(deletion):
-    """Refuse toute suppression sans attribution, sans modifier le retour SQLite."""
-    if any(deletion[name] > 0 for name in ("ambiguous", "no_match", "native_errors", "not_closed")):
+    """C03-R06: comptabilité xDelete stricte, puis rejets C03-R02 conservés."""
+    fields = ("events", "attributed", "ambiguous", "no_match",
+              "native_errors", "not_closed")
+    if not isinstance(deletion, dict) or any(
+            field not in deletion or type(deletion[field]) is not int
+            or deletion[field] < 0 for field in fields):
+        raise AssertionError("C03-R06: invalid xDelete counters")
+    if deletion["events"] != sum(deletion[field] for field in fields[1:]):
+        raise AssertionError("C03-R06: inconsistent xDelete accounting")
+    if deletion["attributed"] != deletion["events"] or any(
+            deletion[field] > 0 for field in fields[2:]):
         raise AssertionError("C03-R02: deletion attribution incomplete: " + repr(deletion))
 
 def run(reject_after_copy=False):
