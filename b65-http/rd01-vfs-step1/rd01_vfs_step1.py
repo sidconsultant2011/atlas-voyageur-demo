@@ -127,7 +127,8 @@ def run():
                           "Pas de durabilité physique démontrée"]}
         # G05: publish exactly the existing clean fixture archive, with a manifest.
         # Do not open either original SQLite file before copying.
-        destination=os.environ.get("ATLAS_RD01_G05_OUTPUT")\n        if destination:
+        destination=os.environ.get("ATLAS_RD01_G05_OUTPUT")
+        if destination:
             out=Path(destination).resolve()
             if out.exists():
                 raise RuntimeError("G05 destination must not exist: "+str(out))
