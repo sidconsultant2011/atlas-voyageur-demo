@@ -12,12 +12,28 @@ class LocalState:
         self.clock=clock or time.monotonic
         self.lock=threading.RLock()
         self.sessions={}
+        self.journeys={}
     def create(self):
         with self.lock:
             sid=secrets.token_urlsafe(32)
             csrf=secrets.token_urlsafe(32)
             self.sessions[sid]={"csrf":csrf,"expires":self.clock()+900,"hits":[]}
             return sid,csrf
+    def create_journey(self,sid):
+        with self.lock:
+            jid=secrets.token_urlsafe(24)
+            self.journeys[jid]={"owner":sid,"label":"Parcours fictif","version":1}
+            return jid
+    def journey(self,sid,jid):
+        with self.lock:
+            item=self.journeys.get(jid)
+            if item is None or not secrets.compare_digest(item["owner"],sid):return None
+            return item
+    def remove_journey(self,sid,jid):
+        with self.lock:
+            if self.journey(sid,jid) is None:return False
+            del self.journeys[jid]
+            return True
     def check(self,sid,csrf=None,write=False):
         with self.lock:
             session=self.sessions.get(sid)
@@ -62,11 +78,11 @@ def create_server(*,port=0,host="127.0.0.1",state=None):
             except Exception:return None
             return c["atlas_qa"].value if "atlas_qa" in c else None
         def do_OPTIONS(self):
-            if self.headers.get("Origin")!=ALLOWED_ORIGIN or self.headers.get("Access-Control-Request-Method") not in ("POST","GET"):
+            if self.headers.get("Origin")!=ALLOWED_ORIGIN or self.headers.get("Access-Control-Request-Method") not in ("POST","GET","DELETE"):
                 return self.fail(403,"ORIGIN_DENIED")
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin",ALLOWED_ORIGIN)
-            self.send_header("Access-Control-Allow-Methods","GET, POST")
+            self.send_header("Access-Control-Allow-Methods","GET, POST, DELETE")
             self.send_header("Access-Control-Allow-Headers","Content-Type, X-CSRF-Token")
             self.send_header("Access-Control-Max-Age","60")
             self.send_header("Vary","Origin")
@@ -79,24 +95,52 @@ def create_server(*,port=0,host="127.0.0.1",state=None):
                 sid,csrf=state.create()
                 return self.send_json(201,{"csrfToken":csrf,"expiresInSeconds":900},
                     {"Set-Cookie":f"atlas_qa={sid}; HttpOnly; SameSite=Strict; Path=/api/v1/qa"})
-            if self.path!="/api/v1/qa/echo":return self.fail(404,"NOT_FOUND")
+            is_create=self.path=="/api/v1/qa/journeys"
+            is_update=self.path.startswith("/api/v1/qa/journeys/") and self.path.endswith("/label")
+            if not (is_create or is_update or self.path=="/api/v1/qa/echo"):return self.fail(404,"NOT_FOUND")
             size=self.headers.get("Content-Length")
             if not size or not size.isdecimal() or int(size)>MAX_BODY:return self.fail(413,"INVALID_LENGTH")
             if self.headers.get("Content-Type")!="application/json":return self.fail(415,"INVALID_CONTENT_TYPE")
             status,detail=state.check(self.cookies(),self.headers.get("X-CSRF-Token"),write=True)
             if status!=200:return self.fail(status,detail)
+            if is_create:
+                if int(size)!=2 or self.rfile.read(2)!=b"{}":return self.fail(400,"INVALID_INPUT")
+                return self.send_json(201,{"journeyId":state.create_journey(self.cookies()),"source":"MOCK_ONLY"})
+            if is_update:
+                jid=self.path.split("/")[-2]
+                with state.lock:
+                    journey=state.journey(self.cookies(),jid)
+                    if journey is None:return self.fail(404,"NOT_FOUND")
             try:
                 data=json.loads(self.rfile.read(int(size)))
                 if not isinstance(data,dict) or set(data)!={"message"} or not isinstance(data["message"],str) or len(data["message"])>80:
                     raise ValueError()
             except (ValueError,UnicodeDecodeError):return self.fail(400,"INVALID_INPUT")
+            if is_update:
+                with state.lock:
+                    journey=state.journey(self.cookies(),jid)
+                    if journey is None:return self.fail(404,"NOT_FOUND")
+                    journey["label"]=data["message"];journey["version"]+=1
+                    return self.send_json(200,{"status":"ok","data":{"version":journey["version"]}})
             return self.send_json(200,{"status":"ok","data":{"message":data["message"],"source":"MOCK_ONLY"}})
         def do_GET(self):
             if not self.origin_ok():return self.fail(403,"ORIGIN_DENIED")
-            if self.path!="/api/v1/qa/state":return self.fail(404,"NOT_FOUND")
+            is_journey=self.path.startswith("/api/v1/qa/journeys/") and len(self.path.split("/"))==6
+            if not (self.path=="/api/v1/qa/state" or is_journey):return self.fail(404,"NOT_FOUND")
             status,detail=state.check(self.cookies())
             if status!=200:return self.fail(status,detail)
+            if is_journey:
+                item=state.journey(self.cookies(),self.path.rsplit("/",1)[-1])
+                if item is None:return self.fail(404,"NOT_FOUND")
+                return self.send_json(200,{"status":"ok","data":{"label":item["label"],"version":item["version"],"source":"MOCK_ONLY"}})
             return self.send_json(200,{"status":"ok","data":{"source":"MOCK_ONLY"}})
+        def do_DELETE(self):
+            if not self.origin_ok():return self.fail(403,"ORIGIN_DENIED")
+            if not (self.path.startswith("/api/v1/qa/journeys/") and len(self.path.split("/"))==6):return self.fail(404,"NOT_FOUND")
+            status,detail=state.check(self.cookies(),self.headers.get("X-CSRF-Token"),write=True)
+            if status!=200:return self.fail(status,detail)
+            if not state.remove_journey(self.cookies(),self.path.rsplit("/",1)[-1]):return self.fail(404,"NOT_FOUND")
+            return self.send_json(200,{"status":"ok","data":{"deleted":True}})
     return ThreadingHTTPServer((host,port),Handler)
 
 if __name__=="__main__":
