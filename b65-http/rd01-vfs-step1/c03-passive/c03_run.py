@@ -43,14 +43,27 @@ def _pointer_offsets(j, supername, page_size):
     return offsets
 
 
+def validate_close_evidence(entry):
+    """C03-R03: refuse toute fermeture absente, erronée ou indéterminée."""
+    if not entry["closed"] or entry["error"]:
+        raise AssertionError("C03-R03: fermeture non attestée")
+    # Fixtures synthétiques historiques dépourvues de métadonnées C03-R03.
+    if any(key in entry for key in ("close_called", "close_known", "close_rc")):
+        if (entry.get("close_called") != 1 or entry.get("close_known") != 1
+                or entry.get("close_rc") != sqlite3.SQLITE_OK):
+            raise AssertionError("C03-R03: résultat xClose non qualifié")
+
+
 def reciprocal_certificate(entries, main_path, attached_path, page_size):
     """C03-R01: une incarnation prouvée par journal, sans max(generation)."""
     supers = [r for r in entries if r["kind"] == 2]
     if len(supers) != 1:
         raise AssertionError("C03: super-journal absent ou multiple")
     s = supers[0]
-    if any(r["error"] or not r["closed"] for r in entries) or not s["deleted"]:
-        raise AssertionError("C03: erreur I/O, cycle incomplet ou suppression S absente")
+    if not s["deleted"]:
+        raise AssertionError("C03: suppression S absente")
+    for entry in entries:
+        validate_close_evidence(entry)
     if not all(s["mask"]) or not s["data"].endswith(b"\x00"):
         raise AssertionError("C03: lacune dans les écritures de S")
     listed = s["data"][:-1].split(b"\x00")
@@ -119,6 +132,8 @@ def run():
         lib.c03_info.restype = ctypes.c_int
         lib.c03_copy.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int]
         lib.c03_copy.restype = ctypes.c_int
+        lib.c03_close_info.argtypes = [ctypes.c_int] + [ctypes.POINTER(ctypes.c_int)] * 3
+        lib.c03_close_info.restype = ctypes.c_int
         lib.c03_sqlite_version.restype = ctypes.c_char_p
         lib.c03_sqlite_symbol.restype = ctypes.c_void_p
         native = ctypes.CDLL(ctypes.util.find_library("sqlite3"))
@@ -174,7 +189,13 @@ def run():
             mask = (ctypes.c_ubyte * size)()
             if lib.c03_copy(i, raw, mask, size) != size:
                 raise AssertionError("C03: memory copy incomplete")
-            entries.append({"path": path.value.decode(), "kind": vals[0].value,
+            close_fields = [ctypes.c_int() for _ in range(3)]
+            if lib.c03_close_info(i, *[ctypes.byref(x) for x in close_fields]) != 0:
+                raise AssertionError("C03-R03: état xClose inaccessible")
+            entries.append({"close_called": close_fields[0].value,
+                            "close_known": close_fields[1].value,
+                            "close_rc": close_fields[2].value,
+                            "path": path.value.decode(), "kind": vals[0].value,
                             "generation": vals[1].value, "closed": vals[2].value,
                             "deleted": vals[3].value, "error": vals[4].value,
                             "writes": vals[5].value, "truncates": vals[6].value,
