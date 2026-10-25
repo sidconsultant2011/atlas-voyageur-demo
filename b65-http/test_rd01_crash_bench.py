@@ -8,6 +8,11 @@ class RD01CrashQualification(unittest.TestCase):
         report = experiment()
         self.assertEqual(report["total"], len(PHASES) * REPEATS)
         self.assertEqual(report["passed"], report["total"])
+        print("RD01 ENV:", report["environment"], flush=True)
+        for case in report["cases"]:
+            print("RD01 CASE:", case["phase"], case["repetition"], case["etat"],
+                  case["integrity_check"], case["journal_mode"],
+                  case["synchronous"], "SIGKILL", flush=True)
         for case in report["cases"]:
             with self.subTest(phase=case["phase"], repetition=case["repetition"]):
                 self.assertTrue(case["compliant"])
