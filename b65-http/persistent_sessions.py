@@ -5,12 +5,16 @@ import hashlib, secrets, sqlite3, threading, time
 from pathlib import Path
 
 class PersistentSessionState:
-    def __init__(self,path,clock=None,ttl_seconds=900):
+    def __init__(self,path,clock=None,ttl_seconds=900,rate_limit=8,window_seconds=60):
         self.path=str(Path(path));self.clock=clock or time.time;self.ttl=ttl_seconds
         self.lock=threading.RLock()
+        if type(rate_limit) is not int or rate_limit<1 or window_seconds<=0:raise ValueError('Invalid rate policy')
+        self.rate_limit=rate_limit;self.window_seconds=window_seconds
         if ttl_seconds<=0:raise ValueError("Invalid TTL")
         with self.connect() as c:
             c.execute("CREATE TABLE IF NOT EXISTS sessions (id_hash TEXT PRIMARY KEY, csrf_hash TEXT NOT NULL, expires REAL NOT NULL, revoked INTEGER NOT NULL DEFAULT 0, CHECK(revoked IN (0,1)))")
+            c.execute("CREATE TABLE IF NOT EXISTS request_events (id_hash TEXT NOT NULL, timestamp REAL NOT NULL)")
+            c.execute("CREATE INDEX IF NOT EXISTS request_events_session_time ON request_events(id_hash,timestamp)")
             c.execute("CREATE TABLE IF NOT EXISTS journeys (id TEXT PRIMARY KEY, owner_hash TEXT NOT NULL, label TEXT NOT NULL, version INTEGER NOT NULL)")
     def connect(self):
         c=sqlite3.connect(self.path,timeout=10)
@@ -25,12 +29,20 @@ class PersistentSessionState:
             c.execute("INSERT INTO sessions(id_hash,csrf_hash,expires) VALUES(?,?,?)",(self.digest(sid),self.digest(csrf),self.clock()+self.ttl))
         return sid,csrf
     def check(self,sid,csrf=None,write=False):
+        # BEGIN IMMEDIATE serializes checks across connections and processes.
         with self.connect() as c:
-            row=c.execute("SELECT csrf_hash,expires,revoked FROM sessions WHERE id_hash=?",(self.digest(sid),)).fetchone()
-        if row is None or row[2] or self.clock()>=row[1]:return 401,"AUTH_REQUIRED"
-        if write and (not isinstance(csrf,str) or not secrets.compare_digest(self.digest(csrf),row[0])):
-            return 403,"CSRF_INVALID"
-        return 200,{"valid":True}
+            c.execute("BEGIN IMMEDIATE")
+            identity=self.digest(sid)
+            row=c.execute("SELECT csrf_hash,expires,revoked FROM sessions WHERE id_hash=?",(identity,)).fetchone()
+            now=self.clock()
+            if row is None or row[2] or now>=row[1]:return 401,"AUTH_REQUIRED"
+            if write and (not isinstance(csrf,str) or not secrets.compare_digest(self.digest(csrf),row[0])):
+                return 403,"CSRF_INVALID"
+            c.execute("DELETE FROM request_events WHERE id_hash=? AND timestamp<=?",(identity,now-self.window_seconds))
+            count=c.execute("SELECT COUNT(*) FROM request_events WHERE id_hash=?",(identity,)).fetchone()[0]
+            if count>=self.rate_limit:return 429,"RATE_LIMITED"
+            c.execute("INSERT INTO request_events(id_hash,timestamp) VALUES(?,?)",(identity,now))
+            return 200,{"valid":True}
     def revoke(self,sid,csrf):
         status,detail=self.check(sid,csrf,write=True)
         if status!=200:return status,detail
