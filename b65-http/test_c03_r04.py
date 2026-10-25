@@ -27,6 +27,8 @@ class C03R04Wipe(unittest.TestCase):
         cls.lib.c03_test_open.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
         cls.lib.c03_test_open.restype = ctypes.c_int
         cls.lib.c03_test_allocation_fault.argtypes = [ctypes.c_int]
+        cls.lib.c03_test_fill.argtypes = [ctypes.c_int]
+        cls.lib.c03_test_fill.restype = ctypes.c_int
         cls.lib.c03_cleanup.argtypes = []
         cls.lib.c03_count.restype = ctypes.c_int
         cls.lib.c03_overflow.restype = ctypes.c_int
@@ -51,6 +53,7 @@ class C03R04Wipe(unittest.TestCase):
     def test_full_allocation_then_wipe_before_free(self):
         idx = self.lib.c03_test_open(b"/fictional/a-journal", 1, 1)
         self.assertEqual(idx, 0)
+        self.assertEqual(self.lib.c03_test_fill(idx), 0)
         self.lib.c03_cleanup()
         self.assertEqual(self.stats(), (2, 0, 2, 0))
         self.assertEqual(self.lib.c03_copy(0, None, None, 0), -1)
