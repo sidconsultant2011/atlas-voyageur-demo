@@ -32,44 +32,66 @@ class PersistentSessionState:
         with self.connect() as c:
             row=c.execute("SELECT expires,revoked FROM sessions WHERE id_hash=?",(self.digest(sid),)).fetchone()
         return bool(row and not row[1] and self.clock()<row[0])
+    def _authorize(self,c,sid,csrf=None,write=False):
+        """Called only inside BEGIN IMMEDIATE, shared across SQLite connections/processes."""
+        identity=self.digest(sid)
+        row=c.execute("SELECT csrf_hash,expires,revoked FROM sessions WHERE id_hash=?",(identity,)).fetchone()
+        now=self.clock()
+        if row is None or row[2] or now>=row[1]:return 401,"AUTH_REQUIRED"
+        if write and (not isinstance(csrf,str) or not secrets.compare_digest(self.digest(csrf),row[0])):
+            return 403,"CSRF_INVALID"
+        c.execute("DELETE FROM request_events WHERE id_hash=? AND timestamp<=?",(identity,now-self.window_seconds))
+        count=c.execute("SELECT COUNT(*) FROM request_events WHERE id_hash=?",(identity,)).fetchone()[0]
+        if count>=self.rate_limit:return 429,"RATE_LIMITED"
+        c.execute("INSERT INTO request_events(id_hash,timestamp) VALUES(?,?)",(identity,now))
+        return 200,{"valid":True}
+
     def check(self,sid,csrf=None,write=False):
-        # BEGIN IMMEDIATE serializes checks across connections and processes.
         with self.connect() as c:
             c.execute("BEGIN IMMEDIATE")
-            identity=self.digest(sid)
-            row=c.execute("SELECT csrf_hash,expires,revoked FROM sessions WHERE id_hash=?",(identity,)).fetchone()
-            now=self.clock()
-            if row is None or row[2] or now>=row[1]:return 401,"AUTH_REQUIRED"
-            if write and (not isinstance(csrf,str) or not secrets.compare_digest(self.digest(csrf),row[0])):
-                return 403,"CSRF_INVALID"
-            c.execute("DELETE FROM request_events WHERE id_hash=? AND timestamp<=?",(identity,now-self.window_seconds))
-            count=c.execute("SELECT COUNT(*) FROM request_events WHERE id_hash=?",(identity,)).fetchone()[0]
-            if count>=self.rate_limit:return 429,"RATE_LIMITED"
-            c.execute("INSERT INTO request_events(id_hash,timestamp) VALUES(?,?)",(identity,now))
-            return 200,{"valid":True}
+            return self._authorize(c,sid,csrf,write)
+
     def revoke(self,sid,csrf):
-        status,detail=self.check(sid,csrf,write=True)
-        if status!=200:return status,detail
+        # R1 linearization point: COMMIT of this transaction.
+        # BEGIN IMMEDIATE also serializes protected mutations in other processes.
         with self.connect() as c:
-            c.execute("UPDATE sessions SET revoked=1 WHERE id_hash=?",(self.digest(sid),))
+            c.execute("BEGIN IMMEDIATE")
+            status,detail=self._authorize(c,sid,csrf,write=True)
+            if status!=200:return status,detail
+            c.execute("UPDATE sessions SET revoked=1 WHERE id_hash=? AND revoked=0",(self.digest(sid),))
         return 200,{"revoked":True}
+
     def create_journey(self,sid):
-        if self.check(sid)[0]!=200:return None
-        jid=secrets.token_urlsafe(24)
         with self.connect() as c:
-            c.execute("INSERT INTO journeys(id,owner_hash,label,version) VALUES(?,?,?,1)",(jid,self.digest(sid),"Parcours fictif"))
+            c.execute("BEGIN IMMEDIATE")
+            if self._authorize(c,sid)[0]!=200:return None
+            jid=secrets.token_urlsafe(24)
+            c.execute("INSERT INTO journeys(id,owner_hash,label,version) VALUES(?,?,?,1)",
+                      (jid,self.digest(sid),"Parcours fictif"))
         return jid
+
     def journey(self,sid,jid):
-        if self.check(sid)[0]!=200:return None
         with self.connect() as c:
-            row=c.execute("SELECT label,version FROM journeys WHERE id=? AND owner_hash=?",(jid,self.digest(sid))).fetchone()
-        return {"label":row[0],"version":row[1]} if row else None
+            c.execute("BEGIN IMMEDIATE")
+            if self._authorize(c,sid)[0]!=200:return None
+            row=c.execute("SELECT label,version FROM journeys WHERE id=? AND owner_hash=?",
+                          (jid,self.digest(sid))).fetchone()
+            return {"label":row[0],"version":row[1]} if row else None
+
     def remove_journey(self,sid,jid):
-        if self.check(sid)[0]!=200:return False
         with self.connect() as c:
-            return bool(c.execute("DELETE FROM journeys WHERE id=? AND owner_hash=?",(jid,self.digest(sid))).rowcount)
+            c.execute("BEGIN IMMEDIATE")
+            if self._authorize(c,sid)[0]!=200:return False
+            return bool(c.execute("DELETE FROM journeys WHERE id=? AND owner_hash=?",
+                                  (jid,self.digest(sid))).rowcount)
+
     def update_journey(self,sid,jid,label):
-        if self.check(sid)[0]!=200:return None
         with self.connect() as c:
-            count=c.execute("UPDATE journeys SET label=?,version=version+1 WHERE id=? AND owner_hash=?",(label,jid,self.digest(sid))).rowcount
-        return self.journey(sid,jid) if count else None
+            c.execute("BEGIN IMMEDIATE")
+            if self._authorize(c,sid)[0]!=200:return None
+            count=c.execute("UPDATE journeys SET label=?,version=version+1 WHERE id=? AND owner_hash=?",
+                            (label,jid,self.digest(sid))).rowcount
+            if not count:return None
+            row=c.execute("SELECT label,version FROM journeys WHERE id=? AND owner_hash=?",
+                          (jid,self.digest(sid))).fetchone()
+            return {"label":row[0],"version":row[1]}
