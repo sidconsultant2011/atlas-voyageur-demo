@@ -8,6 +8,8 @@ import threading
 import unittest
 from pathlib import Path
 from persistent_sessions import PersistentSessionState
+from fictional_identities import FictionalIdentityStore
+from local_identity_bridge import LocalIdentityBridge
 
 
 def _child_mutation(path, sid, jid, begin, output):
@@ -109,6 +111,69 @@ class R1AtomicSQLiteTests(unittest.TestCase):
                 process.terminate()
                 process.join(5)
 
+
+    def test_attached_identity_bridge_prevents_post_revoke_writes(self):
+        identities = FictionalIdentityStore(str(Path(self.temp.name) / "identities.sqlite"),
+                                            clock=lambda: self.now[0])
+        identities.add_fixture_identity("qa-alice")
+        bridge = LocalIdentityBridge(identities)
+        bridge.bind_state(self.state)
+        token = identities.open_session("qa-alice")
+        bridge.bind_fixture(self.sid, token)
+        jid = bridge.create(self.sid)
+        self.assertIsNotNone(jid)
+        self.assertTrue(bridge.update(self.sid, jid, "allowed"))
+        self.assertEqual(bridge.read(self.sid, jid)["label"], "allowed")
+        self.assertEqual(self.state.revoke(self.sid, self.csrf)[0], 200)
+        self.assertIsNone(bridge.create(self.sid))
+        self.assertFalse(bridge.update(self.sid, jid, "forbidden"))
+        self.assertFalse(bridge.delete(self.sid, jid))
+        with sqlite3.connect(identities.path) as db:
+            self.assertEqual(db.execute("SELECT label FROM identity_journeys WHERE id=?",
+                                        (jid,)).fetchone(), ("allowed",))
+
+    def test_attached_identity_mutation_commits_before_revoke(self):
+        entered = threading.Event()
+        release = threading.Event()
+        class PausedState(PersistentSessionState):
+            def _authorize(inner, conn, sid, csrf=None, write=False):
+                result = super()._authorize(conn, sid, csrf, write)
+                if result[0] == 200 and threading.current_thread().name == "identity-writer":
+                    entered.set()
+                    if not release.wait(5):
+                        raise TimeoutError("Synchronization failure")
+                return result
+
+        identities = FictionalIdentityStore(str(Path(self.temp.name) / "identities.sqlite"),
+                                            clock=lambda: self.now[0])
+        identities.add_fixture_identity("qa-alice")
+        state = PausedState(self.path, clock=lambda: self.now[0], rate_limit=1000)
+        bridge = LocalIdentityBridge(identities)
+        bridge.bind_state(state)
+        bridge.bind_fixture(self.sid, identities.open_session("qa-alice"))
+        jid = bridge.create(self.sid)
+        outcomes = {}
+        def mutate():
+            outcomes["mutation"] = bridge.update(self.sid, jid, "committed-first")
+        def revoke():
+            outcomes["revoke"] = self.state.revoke(self.sid, self.csrf)
+        writer = threading.Thread(target=mutate, name="identity-writer")
+        writer.start()
+        self.assertTrue(entered.wait(5))
+        revoker = threading.Thread(target=revoke)
+        revoker.start()
+        self.assertNotIn("revoke", outcomes)
+        release.set()
+        writer.join(8)
+        revoker.join(8)
+        self.assertFalse(writer.is_alive())
+        self.assertFalse(revoker.is_alive())
+        self.assertTrue(outcomes["mutation"])
+        self.assertEqual(outcomes["revoke"][0], 200)
+        self.assertFalse(bridge.update(self.sid, jid, "rejected-later"))
+        with sqlite3.connect(identities.path) as db:
+            self.assertEqual(db.execute("SELECT label FROM identity_journeys WHERE id=?",
+                                        (jid,)).fetchone(), ("committed-first",))
 
 if __name__ == "__main__":
     unittest.main()
