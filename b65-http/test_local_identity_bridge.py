@@ -68,4 +68,37 @@ class IdentityBridgeHTTPTests(unittest.TestCase):
   self.assertEqual(self.req("POST","/api/v1/qa/journeys",a,payload={})[0],403)
   self.assertEqual(self.req("GET","/api/v1/qa/journeys/fake","atlas_qa=bogus")[0],401)
   with self.assertRaises(PermissionError):self.bridge.bind_fixture("not-real","invalid-token")
+ def test_forged_cookie_with_valid_identity_token_cannot_bind(self):
+  token=self.identities.open_session("qa-alice")
+  with self.assertRaises(PermissionError):self.bridge.bind_fixture("forged-cookie",token)
+ def test_revoked_cookie_cannot_rebind_or_access(self):
+  a,csrf=self.session("qa-alice");jid=self.create(a,csrf)[2]["journeyId"]
+  self.assertEqual(self.req("POST","/api/v1/qa/session/revoke",a,csrf)[0],200)
+  self.assertEqual(self.req("GET","/api/v1/qa/journeys/"+jid,a)[0],401)
+  with self.assertRaises(PermissionError):
+   self.bridge.bind_fixture(a.split("=",1)[1],self.identities.open_session("qa-alice"))
+ def test_expired_cookie_cannot_access_or_rebind(self):
+  from local_http_facade import LocalState
+  clock=[100.0]
+  state=LocalState(clock=lambda:clock[0])
+  server=create_server(state=state,identity_bridge=LocalIdentityBridge(self.identities))
+  sid,csrf=state.create()
+  token=self.identities.open_session("qa-alice")
+  server.RequestHandlerClass
+  # Binding is allowed before expiry, never after it.
+  bridge=server.RequestHandlerClass
+  server.server_close()
+  fresh=LocalIdentityBridge(self.identities);fresh.bind_state(state)
+  fresh.bind_fixture(sid,token)
+  clock[0]+=901
+  self.assertIsNone(fresh.owner_token(sid))
+  with self.assertRaises(PermissionError):fresh.bind_fixture(sid,token)
+ def test_restart_does_not_restore_bridge_authorization(self):
+  a,csrf=self.session("qa-alice");jid=self.create(a,csrf)[2]["journeyId"]
+  new_bridge=LocalIdentityBridge(self.identities)
+  from local_http_facade import LocalState
+  # New service cannot restore old in-memory binding, even with same cookie.
+  new_bridge.bind_state(self.bridge._session_state)
+  self.assertIsNone(new_bridge.owner_token(a.split("=",1)[1]))
+  self.assertIsNone(new_bridge.read(a.split("=",1)[1],jid))
 if __name__=="__main__":unittest.main()
