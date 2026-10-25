@@ -21,7 +21,18 @@ def child_during_open_transaction(path, sid, jid, started, begin, result):
     state = PersistentSessionState(path, clock=lambda: 1000.0, rate_limit=1000)
     started.set()                 # child is alive, but not yet authorized
     begin.wait(10)
-    result.put(("begun", True))
+    # Demonstrate actual lock contention, not only that the child process exists.
+    probe = sqlite3.connect(path, timeout=0)
+    try:
+        try:
+            probe.execute("BEGIN IMMEDIATE")
+        except sqlite3.OperationalError as exc:
+            result.put(("locked", "locked" in str(exc).lower()))
+        else:
+            probe.rollback()
+            result.put(("locked", False))
+    finally:
+        probe.close()
     result.put(("mutation", state.update_journey(sid, jid, "child-too-late")))
 
 
@@ -130,7 +141,7 @@ class R1Complements(unittest.TestCase):
             process.start()
             self.assertTrue(started.wait(10))
             begin.set()
-            self.assertEqual(result.get(timeout=10), ("begun", True))
+            self.assertEqual(result.get(timeout=10), ("locked", True))
             # Revocation takes effect while the child is waiting for the DB lock.
             parent.execute("UPDATE sessions SET revoked=1 WHERE id_hash=?",
                            (self.state.digest(self.sid),))
