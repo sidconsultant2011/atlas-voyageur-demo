@@ -156,8 +156,17 @@ def run():
                             "deleted": vals[3].value, "error": vals[4].value,
                             "writes": vals[5].value, "truncates": vals[6].value,
                             "data": bytes(raw), "mask": bytes(mask)})
+        delete_stats = [ctypes.c_int() for _ in range(6)]
+        lib.c03_delete_stats.argtypes = [ctypes.POINTER(ctypes.c_int)] * 6
+        lib.c03_delete_stats.restype = ctypes.c_int
+        if lib.c03_delete_stats(*[ctypes.byref(x) for x in delete_stats]) != 0:
+            raise AssertionError("C03-R02: delete evidence unavailable")
+        deletion = dict(zip(("events", "attributed", "ambiguous", "no_match",
+                             "native_errors", "not_closed"), (x.value for x in delete_stats)))
+        if deletion["ambiguous"] or deletion["native_errors"] or deletion["not_closed"]:
+            raise AssertionError("C03-R02: deletion attribution incomplete: " + repr(deletion))
         certificate = reciprocal_certificate(entries, main, attached, page_sizes[0])
-        certificate.update({"sqlite_version": sqlite3.sqlite_version,
+        certificate.update({"deletion_attribution": deletion, "sqlite_version": sqlite3.sqlite_version,
                             "same_sqlite_symbol": same, "page_size": page_sizes[0],
                             "mutations": state, "integrity_check": checks,
                             "journal_mode": modes, "synchronous": sync,
