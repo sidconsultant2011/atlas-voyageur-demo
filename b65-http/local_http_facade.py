@@ -95,6 +95,11 @@ def create_server(*,port=0,host="127.0.0.1",state=None):
                 sid,csrf=state.create()
                 return self.send_json(201,{"csrfToken":csrf,"expiresInSeconds":900},
                     {"Set-Cookie":f"atlas_qa={sid}; HttpOnly; SameSite=Strict; Path=/api/v1/qa"})
+            if self.path=="/api/v1/qa/session/revoke":
+                if not hasattr(state,"revoke"):return self.fail(404,"NOT_FOUND")
+                status,detail=state.revoke(self.cookies(),self.headers.get("X-CSRF-Token"))
+                if status!=200:return self.fail(status,detail)
+                return self.send_json(200,{"status":"ok","data":detail},{"Set-Cookie":"atlas_qa=; HttpOnly; SameSite=Strict; Path=/api/v1/qa; Max-Age=0"})
             is_create=self.path=="/api/v1/qa/journeys"
             is_update=self.path.startswith("/api/v1/qa/journeys/") and self.path.endswith("/label")
             if not (is_create or is_update or self.path=="/api/v1/qa/echo"):return self.fail(404,"NOT_FOUND")
@@ -105,23 +110,27 @@ def create_server(*,port=0,host="127.0.0.1",state=None):
             if status!=200:return self.fail(status,detail)
             if is_create:
                 if int(size)!=2 or self.rfile.read(2)!=b"{}":return self.fail(400,"INVALID_INPUT")
-                return self.send_json(201,{"journeyId":state.create_journey(self.cookies()),"source":"MOCK_ONLY"})
+                jid=state.create_journey(self.cookies())
+                if jid is None:return self.fail(401,"AUTH_REQUIRED")
+                return self.send_json(201,{"journeyId":jid,"source":"MOCK_ONLY"})
             if is_update:
                 jid=self.path.split("/")[-2]
-                with state.lock:
-                    journey=state.journey(self.cookies(),jid)
-                    if journey is None:return self.fail(404,"NOT_FOUND")
+                if state.journey(self.cookies(),jid) is None:return self.fail(404,"NOT_FOUND")
             try:
                 data=json.loads(self.rfile.read(int(size)))
                 if not isinstance(data,dict) or set(data)!={"message"} or not isinstance(data["message"],str) or len(data["message"])>80:
                     raise ValueError()
             except (ValueError,UnicodeDecodeError):return self.fail(400,"INVALID_INPUT")
             if is_update:
-                with state.lock:
-                    journey=state.journey(self.cookies(),jid)
-                    if journey is None:return self.fail(404,"NOT_FOUND")
-                    journey["label"]=data["message"];journey["version"]+=1
-                    return self.send_json(200,{"status":"ok","data":{"version":journey["version"]}})
+                if hasattr(state,"update_journey"):
+                    journey=state.update_journey(self.cookies(),jid,data["message"])
+                else:
+                    with state.lock:
+                        journey=state.journey(self.cookies(),jid)
+                        if journey is not None:
+                            journey["label"]=data["message"];journey["version"]+=1
+                if journey is None:return self.fail(404,"NOT_FOUND")
+                return self.send_json(200,{"status":"ok","data":{"version":journey["version"]}})
             return self.send_json(200,{"status":"ok","data":{"message":data["message"],"source":"MOCK_ONLY"}})
         def do_GET(self):
             if not self.origin_ok():return self.fail(403,"ORIGIN_DENIED")
