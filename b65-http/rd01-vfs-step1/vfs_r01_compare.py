@@ -101,7 +101,7 @@ def compare():
             raise AssertionError("Paramètres de journalisation non conformes")
         if n["integrity"] != ["ok", "ok"]:
             raise AssertionError("Intégrité SQLite non conforme")
-        if n["result"] != [[["fixture-session", 1]], [["fixture-journey", "fake"]]]:
+        if n["result"] != [[("fixture-session", 1)], [("fixture-journey", "fake")]]:
             raise AssertionError("Invariants métier non conformes")
         log = (root / "wrapper-events.tsv").read_text(encoding="utf-8")
         events = [line.split("\t")[2] for line in log.splitlines() if len(line.split("\t")) == 7]
