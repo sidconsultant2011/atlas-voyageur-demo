@@ -21,17 +21,33 @@ def checksum(name):
     # Somme des octets de la référence UTF-8, vérifiée dans le profil testé.
     return sum(name) & 0xffffffff
 
+def _pointer_offsets(j, supername, page_size):
+    """Indices des références complètes, validées à partir des octets observés."""
+    data, mask = j["data"], j["mask"]
+    offsets = []
+    for i in range(4, len(data)-len(supername)-16+1):
+        if data[i:i+len(supername)] != supername:
+            continue
+        start, end = i-4, i+len(supername)+16
+        if not all(mask[start:end]):
+            continue
+        if be32(data[start:i]) != 0x40000000 // page_size + 1:
+            continue
+        if be32(data[i+len(supername):i+len(supername)+4]) != len(supername):
+            continue
+        if be32(data[i+len(supername)+4:i+len(supername)+8]) != checksum(supername):
+            continue
+        if data[i+len(supername)+8:end] != MAGIC:
+            continue
+        offsets.append(start)
+    return offsets
+
+
 def reciprocal_certificate(entries, main_path, attached_path, page_size):
-    """Rejette les associations absentes, incomplètes, multiples ou incohérentes."""
+    """C03-R01: une incarnation prouvée par journal, sans max(generation)."""
     supers = [r for r in entries if r["kind"] == 2]
     if len(supers) != 1:
         raise AssertionError("C03: super-journal absent ou multiple")
-    expected = (str(main_path) + "-journal", str(attached_path) + "-journal")
-    journal_sets = [[r for r in entries if r["kind"] == 1 and r["path"] == p] for p in expected]
-    if any(not matching for matching in journal_sets):
-        raise AssertionError("C03: journal rollback participant absent")
-    # L'incarnation doit être le journal de la transaction finale, sans variante active.
-    journals = [max(matches, key=lambda r: r["generation"]) for matches in journal_sets]
     s = supers[0]
     if any(r["error"] or not r["closed"] for r in entries) or not s["deleted"]:
         raise AssertionError("C03: erreur I/O, cycle incomplet ou suppression S absente")
@@ -40,37 +56,39 @@ def reciprocal_certificate(entries, main_path, attached_path, page_size):
     listed = s["data"][:-1].split(b"\x00")
     if len(listed) != 2 or len(set(listed)) != 2:
         raise AssertionError("C03: liste S ambiguë ou incomplète")
-    if set(listed) != {j["path"].encode() for j in journals}:
+    expected = (str(main_path) + "-journal", str(attached_path) + "-journal")
+    if set(listed) != {name.encode() for name in expected}:
         raise AssertionError("C03: S ne liste pas exactement les deux journaux")
+
     witnesses = []
-    for role, j in zip(("A", "B"), journals):
-        jname = j["path"].encode()
+    for role, name in zip(("A", "B"), expected):
+        candidates = [r for r in entries if r["kind"] == 1 and r["path"] == name]
+        if not candidates:
+            raise AssertionError("C03: journal " + role + " absent")
+        jname = name.encode()
         soffsets = [i for i in range(len(s["data"])-len(jname))
                     if s["data"][i:i+len(jname)] == jname and
                     s["data"][i+len(jname)] == 0 and all(s["mask"][i:i+len(jname)+1])]
         if len(soffsets) != 1:
             raise AssertionError("C03: S->" + role + " non unique")
-        data, mask, supername = j["data"], j["mask"], s["path"].encode()
-        offsets = []
-        for i in range(4, len(data)-len(supername)-16+1):
-            if data[i:i+len(supername)] != supername:
-                continue
-            start, end = i-4, i+len(supername)+16
-            if not all(mask[start:end]):
-                continue
-            if be32(data[start:i]) != 0x40000000 // page_size + 1:
-                continue
-            if be32(data[i+len(supername):i+len(supername)+4]) != len(supername):
-                continue
-            if be32(data[i+len(supername)+4:i+len(supername)+8]) != checksum(supername):
-                continue
-            if data[i+len(supername)+8:end] != MAGIC:
-                continue
-            offsets.append(start)
-        if len(offsets) != 1:
-            raise AssertionError("C03: " + role + "->S non unique ou mal formé")
+
+        # Une même référence S dans deux incarnations doit être rejetée.
+        matches = [(r, _pointer_offsets(r, s["path"].encode(), page_size))
+                   for r in candidates]
+        if any(len(offsets) > 1 for _, offsets in matches):
+            raise AssertionError("C03: " + role + "->S plusieurs pointeurs")
+        proved = [(r, offsets[0]) for r, offsets in matches if len(offsets) == 1]
+        if len(proved) != 1:
+            raise AssertionError("C03: " + role + "->S absent ou plusieurs incarnations compatibles")
+        j, pointer = proved[0]
+        if not j["deleted"] or not j["closed"] or j["generation"] >= s["generation"]:
+            raise AssertionError("C03: cycle de vie de " + role + " non corroboré")
+        # Une incarnation plus récente du même chemin peut remplacer le fichier;
+        # une référence dans l'ancienne n'atteste pas la continuité du fichier actuel.
+        if any(r["generation"] > j["generation"] for r in candidates):
+            raise AssertionError("C03: recréation/remplacement de " + role + " sans continuité")
         witnesses.append({"role": role, "journal_generation": j["generation"],
-                          "S_list_offset": soffsets[0], "pointer_offset": offsets[0],
+                          "S_list_offset": soffsets[0], "pointer_offset": pointer,
                           "journal_writes": j["writes"], "journal_truncates": j["truncates"]})
     return {"verdict": "RECONSTRUIT_BANC_FICTIF",
             "links": {"S_to_journals": ["A", "B"], "A_to_S": True, "B_to_S": True},
