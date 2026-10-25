@@ -11,6 +11,43 @@ typedef struct {sqlite3_file base; sqlite3_file *inner; int slot;} Obs;
 typedef struct {char path[1024]; unsigned char *data,*present; size_t size; int generation,kind,closed,deleted,error,writes,truncates,close_called,close_known,close_rc;} Record;
 static sqlite3_vfs *parent; static sqlite3_vfs wrapper;
 static Record rec[MAX_FILES]; static int used=0,overflow=0;
+static int allocation_fault=0; /* test seam only, 0: none, 1: data, 2: present */
+static int wipe_verified=0, wipe_failed=0, buffers_freed=0;
+static void secure_wipe(void *ptr,size_t len){
+ /* Volatile byte stores: no dead-store elimination on the Linux C11 runner.
+    This is not a promise about register copies, swap, Python or SQLite. */
+ volatile unsigned char *p=(volatile unsigned char*)ptr;
+ if(!p)return;
+ while(len--)*p++=0;
+}
+static void destroy_pair(Record*r){
+ if(r->data){
+  secure_wipe(r->data,MAX_BYTES);
+  int ok=1;
+  for(size_t i=0;i<MAX_BYTES;i++)if(((volatile unsigned char*)r->data)[i]){ok=0;break;}
+  if(ok)wipe_verified++;else wipe_failed++;
+  free(r->data);r->data=0;buffers_freed++;
+ }
+ if(r->present){
+  secure_wipe(r->present,MAX_BYTES);
+  int ok=1;
+  for(size_t i=0;i<MAX_BYTES;i++)if(((volatile unsigned char*)r->present)[i]){ok=0;break;}
+  if(ok)wipe_verified++;else wipe_failed++;
+  free(r->present);r->present=0;buffers_freed++;
+ }
+ r->size=0;
+}
+void c03_cleanup(void){
+ for(int i=0;i<used;i++)destroy_pair(&rec[i]);
+ memset(rec,0,sizeof(rec));used=0;overflow=0;
+}
+int c03_wipe_stats(int *verified,int *failed,int *freed,int *remaining){
+ if(!verified||!failed||!freed||!remaining)return -1;
+ *verified=wipe_verified;*failed=wipe_failed;*freed=buffers_freed;
+ *remaining=used;return 0;
+}
+void c03_test_allocation_fault(int mode){allocation_fault=mode;}
+
 static int kind_for(int f){if(f&SQLITE_OPEN_MASTER_JOURNAL)return 2;if(f&SQLITE_OPEN_MAIN_JOURNAL)return 1;return 0;}
 static int record_open(const char*z,int kind){
  if(!z||!kind)return -1;
@@ -18,8 +55,9 @@ static int record_open(const char*z,int kind){
  int i=used++;Record*r=&rec[i];memset(r,0,sizeof(*r));
  if(strlen(z)>=sizeof(r->path)){overflow=1;r->error=1;return -1;}
  strcpy(r->path,z);r->kind=kind;r->generation=i+1;
- r->data=calloc(MAX_BYTES,1);r->present=calloc(MAX_BYTES,1);
- if(!r->data||!r->present){overflow=1;r->error=1;}
+ r->data=(allocation_fault==1)?0:calloc(MAX_BYTES,1);
+ r->present=(allocation_fault==2)?0:calloc(MAX_BYTES,1);
+ if(!r->data||!r->present){overflow=1;r->error=1;destroy_pair(r);return -1;}
  return i;
 }
 /* C03-R03: the evidence records invocation, known native result and success separately.
@@ -100,8 +138,8 @@ static int de(sqlite3_vfs*v,const char*z,int n){
 /* Test-only seams: replay synthetic lifecycle cases, without OS file deletion.
    They exercise exactly the helper called AFTER the native xDelete callback. */
 void c03_test_reset(void){
- for(int i=0;i<used;i++){free(rec[i].data);free(rec[i].present);}
- memset(rec,0,sizeof(rec));used=0;overflow=0;
+ c03_cleanup();allocation_fault=0;
+ wipe_verified=wipe_failed=buffers_freed=0;
  deletion_events=delete_assigned=delete_ambiguous=0;
  delete_no_match=delete_failed=delete_unclosed=0;
 }
@@ -160,7 +198,7 @@ int c03_info(int idx,char*path,int cap,int*kind,int*generation,int*closed,int*de
 }
 int c03_copy(int idx,unsigned char*bytes,unsigned char*present,int cap){
  if(idx<0||idx>=used||cap<(int)rec[idx].size)return -1;
- Record*r=&rec[idx];memcpy(bytes,r->data,r->size);memcpy(present,r->present,r->size);return (int)r->size;
+ Record*r=&rec[idx];if(!r->data||!r->present)return -1;memcpy(bytes,r->data,r->size);memcpy(present,r->present,r->size);return (int)r->size;
 }
 const char*c03_sqlite_version(void){return sqlite3_libversion();}
 const void*c03_sqlite_symbol(void){return (const void*)&sqlite3_vfs_find;}
