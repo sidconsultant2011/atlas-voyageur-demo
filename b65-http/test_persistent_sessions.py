@@ -1,5 +1,5 @@
 """B6.5 QA disk sessions: restart, expiry, revocation, IDOR and local HTTP."""
-import tempfile, unittest, sqlite3
+import tempfile, unittest, sqlite3, threading, http.client, json
 from pathlib import Path
 from persistent_sessions import PersistentSessionState
 from local_http_facade import create_server
@@ -40,6 +40,20 @@ class PersistentSessionTests(unittest.TestCase):
   raw=Path(self.path).read_bytes()
   self.assertNotIn(sid.encode(),raw)
   self.assertNotIn(csrf.encode(),raw)
+ def test_http_reopen_revoke_blocks_existing_journey(self):
+  sid,csrf=self.state.create();jid=self.state.create_journey(sid)
+  server=create_server(state=self.restart());thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+  def request(method,path,csrf_header=None):
+   c=http.client.HTTPConnection("127.0.0.1",server.server_port,timeout=3)
+   headers={"Cookie":"atlas_qa="+sid,"Origin":"http://127.0.0.1:8765"}
+   if csrf_header:headers["X-CSRF-Token"]=csrf_header
+   c.request(method,path,headers=headers);r=c.getresponse();status=r.status;r.read();c.close();return status
+  try:
+   self.assertEqual(request("GET","/api/v1/qa/journeys/"+jid),200)
+   self.assertEqual(request("POST","/api/v1/qa/session/revoke",csrf),200)
+   self.assertEqual(request("GET","/api/v1/qa/journeys/"+jid),401)
+  finally:
+   server.shutdown();server.server_close();thread.join(timeout=3)
  def test_persistent_state_supported_by_local_server(self):
   server=create_server(state=self.state)
   self.assertEqual(server.server_address[0],"127.0.0.1")
