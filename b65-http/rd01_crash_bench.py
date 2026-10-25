@@ -139,6 +139,8 @@ def experiment(repeats=REPEATS):
                     if proc.poll() is None:
                         proc.kill()
                         proc.wait(timeout=8)
+                    if proc.stderr is not None:
+                        proc.stderr.close()
     return {"environment": environment, "cases": cases, "total": len(cases),
             "passed": sum(x["compliant"] for x in cases),
             "limits": "Child SIGKILL at external checkpoints only. No internal COMMIT crash injection."}
