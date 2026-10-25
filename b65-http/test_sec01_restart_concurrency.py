@@ -112,15 +112,17 @@ class RestartAndRevocationTests(unittest.TestCase):
         path = "/api/v1/qa/journeys/" + jid
         gate = threading.Event()
 
-        def read_worker(_):
+        def protected_worker(i):
             gate.wait(timeout=5)
+            if i % 2:
+                return self.request("POST", path + "/label", sid, csrf, {"message": "race"})[0]
             return self.request("GET", path, sid)[0]
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
-            reads = [pool.submit(read_worker, i) for i in range(20)]
+            requests = [pool.submit(protected_worker, i) for i in range(20)]
             gate.set()
             revocation = self.request("POST", "/api/v1/qa/session/revoke", sid, csrf)[0]
-            statuses = [future.result(timeout=10) for future in reads]
+            statuses = [future.result(timeout=10) for future in requests]
         self.assertEqual(revocation, 200)
         self.assertTrue(all(s in (200, 401, 404) for s in statuses), statuses)
         # Assertions concern requests initiated AFTER revoke returned, not
