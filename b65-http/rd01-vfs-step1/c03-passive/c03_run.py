@@ -114,7 +114,7 @@ def validate_deletion_attribution(deletion):
     if any(deletion[name] > 0 for name in ("ambiguous", "no_match", "native_errors", "not_closed")):
         raise AssertionError("C03-R02: deletion attribution incomplete: " + repr(deletion))
 
-def run():
+def run(reject_after_copy=False):
     with tempfile.TemporaryDirectory(prefix="atlas-c03-passive-") as directory:
         root = Path(directory)
         library_path = root / "libc03.so"
@@ -214,6 +214,8 @@ def run():
             deletion = dict(zip(("events", "attributed", "ambiguous", "no_match",
                                  "native_errors", "not_closed"), (x.value for x in delete_stats)))
             validate_deletion_attribution(deletion)
+            if reject_after_copy:
+                raise AssertionError("C03-R04: rejet fictif après copie")
             certificate = reciprocal_certificate(entries, main, attached, page_sizes[0])
             certificate.update({"deletion_attribution": deletion, "sqlite_version": sqlite3.sqlite_version,
                                 "same_sqlite_symbol": same, "page_size": page_sizes[0],
