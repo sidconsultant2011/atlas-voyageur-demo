@@ -30,20 +30,21 @@ def fictional_entries():
 
 class C03Passive(unittest.TestCase):
     def test_certificate_rejects_no_match_one_and_many(self):
-        baseline = {"ambiguous": 0, "no_match": 0, "native_errors": 0, "not_closed": 0}
+        baseline = {"events": 1, "attributed": 0, "ambiguous": 0, "no_match": 0, "native_errors": 0, "not_closed": 0}
         for count in (1, 2):
             with self.subTest(no_match=count):
-                values = dict(baseline, no_match=count)
+                values = dict(baseline, events=count, no_match=count)
                 with self.assertRaisesRegex(AssertionError, "deletion attribution incomplete"):
                     validate_deletion_attribution(values)
 
     def test_certificate_all_zero_is_accepted(self):
         validate_deletion_attribution({
+            "events": 1, "attributed": 1,
             "ambiguous": 0, "no_match": 0, "native_errors": 0, "not_closed": 0
         })
 
     def test_certificate_keeps_other_rejections(self):
-        baseline = {"ambiguous": 0, "no_match": 0, "native_errors": 0, "not_closed": 0}
+        baseline = {"events": 1, "attributed": 0, "ambiguous": 0, "no_match": 0, "native_errors": 0, "not_closed": 0}
         for field in ("ambiguous", "native_errors", "not_closed"):
             with self.subTest(field=field):
                 values = dict(baseline, **{field: 1})
