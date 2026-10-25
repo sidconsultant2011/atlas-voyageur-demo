@@ -47,6 +47,13 @@ int c03_wipe_stats(int *verified,int *failed,int *freed,int *remaining){
  *remaining=used;return 0;
 }
 void c03_test_allocation_fault(int mode){allocation_fault=mode;}
+int c03_test_fill(int slot){
+ if(slot<0||slot>=used||!rec[slot].data||!rec[slot].present)return -1;
+ memset(rec[slot].data,0xa5,MAX_BYTES);
+ memset(rec[slot].present,0x5a,MAX_BYTES);
+ rec[slot].size=16;
+ return 0;
+}
 
 static int kind_for(int f){if(f&SQLITE_OPEN_MASTER_JOURNAL)return 2;if(f&SQLITE_OPEN_MAIN_JOURNAL)return 1;return 0;}
 static int record_open(const char*z,int kind){
