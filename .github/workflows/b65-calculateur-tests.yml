@@ -6,6 +6,7 @@ on:
     paths:
       - 'b65-calculateur/**'
       - 'b65-sqlite/**'
+      - 'b65-http/**'
       - 'RECETTE-B65-PARCOURS-COMPLET.html'
       - '.github/workflows/b65-calculateur-tests.yml'
   workflow_dispatch:
@@ -23,3 +24,5 @@ jobs:
         run: node --test b65-calculateur/*.test.mjs
       - name: Tests SQLite persistants hors ligne
         run: python3 -m unittest discover -s b65-sqlite -p 'test_*.py' -v
+      - name: Tests façade HTTP locale hors ligne
+        run: python3 -m unittest discover -s b65-http -p 'test_*.py' -v
