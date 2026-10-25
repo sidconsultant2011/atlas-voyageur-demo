@@ -28,6 +28,10 @@ class PersistentSessionState:
         with self.connect() as c:
             c.execute("INSERT INTO sessions(id_hash,csrf_hash,expires) VALUES(?,?,?)",(self.digest(sid),self.digest(csrf),self.clock()+self.ttl))
         return sid,csrf
+    def is_active_session(self,sid):
+        with self.connect() as c:
+            row=c.execute("SELECT expires,revoked FROM sessions WHERE id_hash=?",(self.digest(sid),)).fetchone()
+        return bool(row and not row[1] and self.clock()<row[0])
     def check(self,sid,csrf=None,write=False):
         # BEGIN IMMEDIATE serializes checks across connections and processes.
         with self.connect() as c:
