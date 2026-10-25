@@ -18,6 +18,8 @@ class RD01VFSStage1(unittest.TestCase):
         self.assertEqual(proof["G05"]["invariant"],[1,"fake"])
         self.assertTrue(proof["G05"]["raw_unchanged"])
         self.assertTrue(proof["G03"]["observations"]["two_databases"])
+        self.assertTrue(proof["G03"]["observations"]["candidate_open_observed"])
+        self.assertTrue(proof["G03"]["observations"]["candidate_delete_observed"])
         self.assertFalse(proof["G03"]["observations"]["commit_internal_phase_proven"])
         self.assertFalse(proof["G03"]["observations"]["durability_proven"])
         print("RD01 G03 NORMAL COMMIT TRACE "+json.dumps(proof["G03"],sort_keys=True,ensure_ascii=False),flush=True)
