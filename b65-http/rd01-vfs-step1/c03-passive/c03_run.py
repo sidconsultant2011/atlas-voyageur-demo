@@ -78,6 +78,11 @@ def reciprocal_certificate(entries, main_path, attached_path, page_size):
                       "opened_as": "SQLITE_OPEN_MASTER_JOURNAL", "deleted": bool(s["deleted"])},
             "provenance": witnesses}
 
+def validate_deletion_attribution(deletion):
+    """Refuse toute suppression sans attribution, sans modifier le retour SQLite."""
+    if any(deletion[name] > 0 for name in ("ambiguous", "no_match", "native_errors", "not_closed")):
+        raise AssertionError("C03-R02: deletion attribution incomplete: " + repr(deletion))
+
 def run():
     with tempfile.TemporaryDirectory(prefix="atlas-c03-passive-") as directory:
         root = Path(directory)
@@ -163,8 +168,7 @@ def run():
             raise AssertionError("C03-R02: delete evidence unavailable")
         deletion = dict(zip(("events", "attributed", "ambiguous", "no_match",
                              "native_errors", "not_closed"), (x.value for x in delete_stats)))
-        if deletion["ambiguous"] or deletion["native_errors"] or deletion["not_closed"]:
-            raise AssertionError("C03-R02: deletion attribution incomplete: " + repr(deletion))
+        validate_deletion_attribution(deletion)
         certificate = reciprocal_certificate(entries, main, attached, page_sizes[0])
         certificate.update({"deletion_attribution": deletion, "sqlite_version": sqlite3.sqlite_version,
                             "same_sqlite_symbol": same, "page_size": page_sizes[0],
