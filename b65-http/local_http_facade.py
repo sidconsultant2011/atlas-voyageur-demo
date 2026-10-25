@@ -46,7 +46,7 @@ class LocalState:
             session["hits"].append(now)
             return 200,session
 
-def create_server(*,port=0,host="127.0.0.1",state=None):
+def create_server(*,port=0,host="127.0.0.1",state=None,identity_bridge=None):
     if host!="127.0.0.1":raise ValueError("Only IPv4 loopback is allowed")
     state=state or LocalState()
     class Handler(BaseHTTPRequestHandler):
@@ -110,18 +110,22 @@ def create_server(*,port=0,host="127.0.0.1",state=None):
             if status!=200:return self.fail(status,detail)
             if is_create:
                 if int(size)!=2 or self.rfile.read(2)!=b"{}":return self.fail(400,"INVALID_INPUT")
-                jid=state.create_journey(self.cookies())
+                jid=identity_bridge.create(self.cookies()) if identity_bridge else state.create_journey(self.cookies())
                 if jid is None:return self.fail(401,"AUTH_REQUIRED")
                 return self.send_json(201,{"journeyId":jid,"source":"MOCK_ONLY"})
             if is_update:
                 jid=self.path.split("/")[-2]
-                if state.journey(self.cookies(),jid) is None:return self.fail(404,"NOT_FOUND")
+                item=identity_bridge.read(self.cookies(),jid) if identity_bridge else state.journey(self.cookies(),jid)
+                if item is None:return self.fail(404,"NOT_FOUND")
             try:
                 data=json.loads(self.rfile.read(int(size)))
                 if not isinstance(data,dict) or set(data)!={"message"} or not isinstance(data["message"],str) or len(data["message"])>80:
                     raise ValueError()
             except (ValueError,UnicodeDecodeError):return self.fail(400,"INVALID_INPUT")
             if is_update:
+                if identity_bridge:
+                    if not identity_bridge.update(self.cookies(),jid,data["message"]):return self.fail(404,"NOT_FOUND")
+                    return self.send_json(200,{"status":"ok","data":{"source":"MOCK_ONLY"}})
                 if hasattr(state,"update_journey"):
                     journey=state.update_journey(self.cookies(),jid,data["message"])
                 else:
@@ -139,16 +143,19 @@ def create_server(*,port=0,host="127.0.0.1",state=None):
             status,detail=state.check(self.cookies())
             if status!=200:return self.fail(status,detail)
             if is_journey:
-                item=state.journey(self.cookies(),self.path.rsplit("/",1)[-1])
+                jid=self.path.rsplit("/",1)[-1]
+                item=identity_bridge.read(self.cookies(),jid) if identity_bridge else state.journey(self.cookies(),jid)
                 if item is None:return self.fail(404,"NOT_FOUND")
-                return self.send_json(200,{"status":"ok","data":{"label":item["label"],"version":item["version"],"source":"MOCK_ONLY"}})
+                return self.send_json(200,{"status":"ok","data":{"label":item["label"],"version":item.get("version"),"source":"MOCK_ONLY"}})
             return self.send_json(200,{"status":"ok","data":{"source":"MOCK_ONLY"}})
         def do_DELETE(self):
             if not self.origin_ok():return self.fail(403,"ORIGIN_DENIED")
             if not (self.path.startswith("/api/v1/qa/journeys/") and len(self.path.split("/"))==6):return self.fail(404,"NOT_FOUND")
             status,detail=state.check(self.cookies(),self.headers.get("X-CSRF-Token"),write=True)
             if status!=200:return self.fail(status,detail)
-            if not state.remove_journey(self.cookies(),self.path.rsplit("/",1)[-1]):return self.fail(404,"NOT_FOUND")
+            jid=self.path.rsplit("/",1)[-1]
+            deleted=identity_bridge.delete(self.cookies(),jid) if identity_bridge else state.remove_journey(self.cookies(),jid)
+            if not deleted:return self.fail(404,"NOT_FOUND")
             return self.send_json(200,{"status":"ok","data":{"deleted":True}})
     return ThreadingHTTPServer((host,port),Handler)
 
