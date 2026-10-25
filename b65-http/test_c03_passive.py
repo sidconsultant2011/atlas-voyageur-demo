@@ -56,8 +56,8 @@ class C03Passive(unittest.TestCase):
 
     def test_r01_historical_incarnation_discriminated_by_references(self):
         e = fictional_entries()
-        old = dict(e[1], generation=0, data=b"\\x00" * 512,
-                   mask=b"\\x00" * 512, deleted=1, closed=1)
+        old = dict(e[1], generation=0, data=b"\x00" * 512,
+                   mask=b"\x00" * 512, deleted=1, closed=1)
         e.append(old)
         proof = reciprocal_certificate(e, MAIN, ATTACHED, 4096)
         self.assertEqual(proof["provenance"][0]["journal_generation"], 1)
@@ -95,7 +95,7 @@ class C03Passive(unittest.TestCase):
 
     def test_r01_incomplete_incarnation_rejected(self):
         e = fictional_entries()
-        e[1]["mask"] = e[1]["mask"][:-12] + b"\\x00" * 12
+        e[1]["mask"] = e[1]["mask"][:-12] + b"\x00" * 12
         with self.assertRaises(AssertionError):
             reciprocal_certificate(e, MAIN, ATTACHED, 4096)
 
