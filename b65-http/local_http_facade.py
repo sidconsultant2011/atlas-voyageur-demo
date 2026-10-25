@@ -19,6 +19,17 @@ class LocalState:
             csrf=secrets.token_urlsafe(32)
             self.sessions[sid]={"csrf":csrf,"expires":self.clock()+900,"hits":[]}
             return sid,csrf
+    def is_active_session(self,sid):
+        with self.lock:
+            session=self.sessions.get(sid)
+            return bool(session and self.clock()<session["expires"])
+    def revoke(self,sid,csrf):
+        with self.lock:
+            session=self.sessions.get(sid)
+            if not session or self.clock()>=session["expires"]:return 401,"AUTH_REQUIRED"
+            if not isinstance(csrf,str) or not secrets.compare_digest(csrf,session["csrf"]):return 403,"CSRF_INVALID"
+            del self.sessions[sid]
+            return 200,{"revoked":True}
     def create_journey(self,sid):
         with self.lock:
             jid=secrets.token_urlsafe(24)
@@ -49,6 +60,7 @@ class LocalState:
 def create_server(*,port=0,host="127.0.0.1",state=None,identity_bridge=None):
     if host!="127.0.0.1":raise ValueError("Only IPv4 loopback is allowed")
     state=state or LocalState()
+    if identity_bridge:identity_bridge.bind_state(state)
     class Handler(BaseHTTPRequestHandler):
         server_version="AtlasQA/1"
         sys_version=""
@@ -99,6 +111,7 @@ def create_server(*,port=0,host="127.0.0.1",state=None,identity_bridge=None):
                 if not hasattr(state,"revoke"):return self.fail(404,"NOT_FOUND")
                 status,detail=state.revoke(self.cookies(),self.headers.get("X-CSRF-Token"))
                 if status!=200:return self.fail(status,detail)
+                if identity_bridge:identity_bridge.revoke_binding(self.cookies())
                 return self.send_json(200,{"status":"ok","data":detail},{"Set-Cookie":"atlas_qa=; HttpOnly; SameSite=Strict; Path=/api/v1/qa; Max-Age=0"})
             is_create=self.path=="/api/v1/qa/journeys"
             is_update=self.path.startswith("/api/v1/qa/journeys/") and self.path.endswith("/label")
