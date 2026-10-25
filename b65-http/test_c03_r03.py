@@ -49,7 +49,7 @@ class C03R03CloseEvidence(unittest.TestCase):
         self.assertGreaterEqual(self.lib.c03_info(index,path,1024,*[ctypes.byref(v) for v in state]),0)
         close=[ctypes.c_int() for _ in range(3)]
         self.assertEqual(self.lib.c03_close_info(index,*[ctypes.byref(v) for v in close]),0)
-        return {"closed":state[3].value,"error":state[4].value,
+        return {"closed":state[2].value,"error":state[4].value,
                 "close_called":close[0].value,"close_known":close[1].value,
                 "close_rc":close[2].value}
 
