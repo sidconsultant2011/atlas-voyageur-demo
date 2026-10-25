@@ -18,7 +18,7 @@ from local_http_facade import create_server, ALLOWED_ORIGIN
 
 
 def child_during_open_transaction(path, sid, jid, started, begin, result):
-    state = PersistentSessionState(path, rate_limit=1000)
+    state = PersistentSessionState(path, clock=lambda: 1000.0, rate_limit=1000)
     started.set()                 # child is alive, but not yet authorized
     begin.wait(10)
     result.put(("begun", True))
