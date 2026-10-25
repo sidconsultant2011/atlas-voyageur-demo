@@ -145,81 +145,100 @@ def run():
             raise AssertionError("C03: SQLite Python et VFS différente")
         if lib.c03_register() != sqlite3.SQLITE_OK:
             raise AssertionError("C03: VFS registration failed")
-        main, attached = root / "sessions.sqlite", root / "identities.sqlite"
-        uri = "file:" + quote(str(main)) + "?mode=rwc&vfs=atlas_c03_passive"
-        with sqlite3.connect(uri, uri=True) as db:
-            db.execute("PRAGMA main.journal_mode=DELETE")
-            db.execute("PRAGMA main.synchronous=FULL")
-            db.execute("CREATE TABLE sessions(id TEXT PRIMARY KEY,revoked INTEGER)")
-            db.execute("INSERT INTO sessions VALUES('fake',0)")
-            db.commit()
-            db.execute("ATTACH DATABASE ? AS idb", (str(attached),))
-            db.execute("PRAGMA idb.journal_mode=DELETE")
-            db.execute("PRAGMA idb.synchronous=FULL")
-            db.execute("CREATE TABLE idb.journeys(id TEXT PRIMARY KEY,label TEXT)")
-            db.commit()
-            db.execute("BEGIN IMMEDIATE")
-            db.execute("UPDATE sessions SET revoked=1 WHERE id='fake'")
-            db.execute("INSERT INTO idb.journeys VALUES('fake-journey','fake')")
-            db.commit()
-            state = [db.execute("SELECT revoked FROM sessions").fetchone()[0],
-                     db.execute("SELECT label FROM idb.journeys").fetchone()[0]]
-            checks = [db.execute("PRAGMA main.integrity_check").fetchone()[0],
-                      db.execute("PRAGMA idb.integrity_check").fetchone()[0]]
-            modes = [db.execute("PRAGMA main.journal_mode").fetchone()[0],
-                     db.execute("PRAGMA idb.journal_mode").fetchone()[0]]
-            sync = [db.execute("PRAGMA main.synchronous").fetchone()[0],
-                    db.execute("PRAGMA idb.synchronous").fetchone()[0]]
-            page_sizes = [db.execute("PRAGMA main.page_size").fetchone()[0],
-                          db.execute("PRAGMA idb.page_size").fetchone()[0]]
-        if state != [1, "fake"] or checks != ["ok", "ok"] or \
-                modes != ["delete", "delete"] or sync != [2, 2] or \
-                page_sizes[0] != page_sizes[1]:
-            raise AssertionError("C03: SQLite invariants failed")
-        if lib.c03_overflow():
-            raise AssertionError("C03: unbounded or incomplete journal capture")
+        lib.c03_cleanup.argtypes = []
+        lib.c03_cleanup.restype = None
+        lib.c03_wipe_stats.argtypes = [ctypes.POINTER(ctypes.c_int)] * 4
+        lib.c03_wipe_stats.restype = ctypes.c_int
         entries = []
-        for i in range(lib.c03_count()):
-            path = ctypes.create_string_buffer(1024)
-            vals = [ctypes.c_int() for _ in range(7)]
-            size = lib.c03_info(i, path, 1024, *[ctypes.byref(v) for v in vals])
-            if size < 0:
-                raise AssertionError("C03: file identity unavailable")
-            raw = (ctypes.c_ubyte * size)()
-            mask = (ctypes.c_ubyte * size)()
-            if lib.c03_copy(i, raw, mask, size) != size:
-                raise AssertionError("C03: memory copy incomplete")
-            close_fields = [ctypes.c_int() for _ in range(3)]
-            if lib.c03_close_info(i, *[ctypes.byref(x) for x in close_fields]) != 0:
-                raise AssertionError("C03-R03: état xClose inaccessible")
-            entries.append({"close_called": close_fields[0].value,
-                            "close_known": close_fields[1].value,
-                            "close_rc": close_fields[2].value,
-                            "path": path.value.decode(), "kind": vals[0].value,
-                            "generation": vals[1].value, "closed": vals[2].value,
-                            "deleted": vals[3].value, "error": vals[4].value,
-                            "writes": vals[5].value, "truncates": vals[6].value,
-                            "data": bytes(raw), "mask": bytes(mask)})
-        delete_stats = [ctypes.c_int() for _ in range(6)]
-        lib.c03_delete_stats.argtypes = [ctypes.POINTER(ctypes.c_int)] * 6
-        lib.c03_delete_stats.restype = ctypes.c_int
-        if lib.c03_delete_stats(*[ctypes.byref(x) for x in delete_stats]) != 0:
-            raise AssertionError("C03-R02: delete evidence unavailable")
-        deletion = dict(zip(("events", "attributed", "ambiguous", "no_match",
-                             "native_errors", "not_closed"), (x.value for x in delete_stats)))
-        validate_deletion_attribution(deletion)
-        certificate = reciprocal_certificate(entries, main, attached, page_sizes[0])
-        certificate.update({"deletion_attribution": deletion, "sqlite_version": sqlite3.sqlite_version,
-                            "same_sqlite_symbol": same, "page_size": page_sizes[0],
-                            "mutations": state, "integrity_check": checks,
-                            "journal_mode": modes, "synchronous": sync,
-                            "observed_journal_incarnations": len(entries),
-                            "raw_buffers_published": False,
-                            "crash_recovery_demonstrated": False,
-                            "before_delegate_demonstrated": False,
-                            "physical_durability_demonstrated": False,
-                            "platform": platform.system()})
-        return certificate
+        try:
+            main, attached = root / "sessions.sqlite", root / "identities.sqlite"
+            uri = "file:" + quote(str(main)) + "?mode=rwc&vfs=atlas_c03_passive"
+            with sqlite3.connect(uri, uri=True) as db:
+                db.execute("PRAGMA main.journal_mode=DELETE")
+                db.execute("PRAGMA main.synchronous=FULL")
+                db.execute("CREATE TABLE sessions(id TEXT PRIMARY KEY,revoked INTEGER)")
+                db.execute("INSERT INTO sessions VALUES('fake',0)")
+                db.commit()
+                db.execute("ATTACH DATABASE ? AS idb", (str(attached),))
+                db.execute("PRAGMA idb.journal_mode=DELETE")
+                db.execute("PRAGMA idb.synchronous=FULL")
+                db.execute("CREATE TABLE idb.journeys(id TEXT PRIMARY KEY,label TEXT)")
+                db.commit()
+                db.execute("BEGIN IMMEDIATE")
+                db.execute("UPDATE sessions SET revoked=1 WHERE id='fake'")
+                db.execute("INSERT INTO idb.journeys VALUES('fake-journey','fake')")
+                db.commit()
+                state = [db.execute("SELECT revoked FROM sessions").fetchone()[0],
+                         db.execute("SELECT label FROM idb.journeys").fetchone()[0]]
+                checks = [db.execute("PRAGMA main.integrity_check").fetchone()[0],
+                          db.execute("PRAGMA idb.integrity_check").fetchone()[0]]
+                modes = [db.execute("PRAGMA main.journal_mode").fetchone()[0],
+                         db.execute("PRAGMA idb.journal_mode").fetchone()[0]]
+                sync = [db.execute("PRAGMA main.synchronous").fetchone()[0],
+                        db.execute("PRAGMA idb.synchronous").fetchone()[0]]
+                page_sizes = [db.execute("PRAGMA main.page_size").fetchone()[0],
+                              db.execute("PRAGMA idb.page_size").fetchone()[0]]
+            if state != [1, "fake"] or checks != ["ok", "ok"] or \
+                    modes != ["delete", "delete"] or sync != [2, 2] or \
+                    page_sizes[0] != page_sizes[1]:
+                raise AssertionError("C03: SQLite invariants failed")
+            if lib.c03_overflow():
+                raise AssertionError("C03: unbounded or incomplete journal capture")
+            entries = []
+            for i in range(lib.c03_count()):
+                path = ctypes.create_string_buffer(1024)
+                vals = [ctypes.c_int() for _ in range(7)]
+                size = lib.c03_info(i, path, 1024, *[ctypes.byref(v) for v in vals])
+                if size < 0:
+                    raise AssertionError("C03: file identity unavailable")
+                raw = (ctypes.c_ubyte * size)()
+                mask = (ctypes.c_ubyte * size)()
+                if lib.c03_copy(i, raw, mask, size) != size:
+                    raise AssertionError("C03: memory copy incomplete")
+                close_fields = [ctypes.c_int() for _ in range(3)]
+                if lib.c03_close_info(i, *[ctypes.byref(x) for x in close_fields]) != 0:
+                    raise AssertionError("C03-R03: état xClose inaccessible")
+                entries.append({"close_called": close_fields[0].value,
+                                "close_known": close_fields[1].value,
+                                "close_rc": close_fields[2].value,
+                                "path": path.value.decode(), "kind": vals[0].value,
+                                "generation": vals[1].value, "closed": vals[2].value,
+                                "deleted": vals[3].value, "error": vals[4].value,
+                                "writes": vals[5].value, "truncates": vals[6].value,
+                                "data": bytes(raw), "mask": bytes(mask)})
+            delete_stats = [ctypes.c_int() for _ in range(6)]
+            lib.c03_delete_stats.argtypes = [ctypes.POINTER(ctypes.c_int)] * 6
+            lib.c03_delete_stats.restype = ctypes.c_int
+            if lib.c03_delete_stats(*[ctypes.byref(x) for x in delete_stats]) != 0:
+                raise AssertionError("C03-R02: delete evidence unavailable")
+            deletion = dict(zip(("events", "attributed", "ambiguous", "no_match",
+                                 "native_errors", "not_closed"), (x.value for x in delete_stats)))
+            validate_deletion_attribution(deletion)
+            certificate = reciprocal_certificate(entries, main, attached, page_sizes[0])
+            certificate.update({"deletion_attribution": deletion, "sqlite_version": sqlite3.sqlite_version,
+                                "same_sqlite_symbol": same, "page_size": page_sizes[0],
+                                "mutations": state, "integrity_check": checks,
+                                "journal_mode": modes, "synchronous": sync,
+                                "observed_journal_incarnations": len(entries),
+                                "raw_buffers_published": False,
+                                "crash_recovery_demonstrated": False,
+                                "before_delegate_demonstrated": False,
+                                "physical_durability_demonstrated": False,
+                                "platform": platform.system()})
+            return certificate
+        finally:
+            # Preserve only the synthetic certificate; drop Python references
+            # to copied journal data, then wipe all retained C allocations.
+            for entry in entries:
+                entry["data"] = b""
+                entry["mask"] = b""
+            lib.c03_cleanup()
+            stats = [ctypes.c_int() for _ in range(4)]
+            if lib.c03_wipe_stats(*[ctypes.byref(x) for x in stats]) != 0:
+                raise AssertionError("C03-R04: wipe evidence unavailable")
+            if stats[1].value or stats[3].value or stats[0].value != stats[2].value:
+                raise AssertionError("C03-R04: incomplete or failed C buffer wipe")
+
 
 if __name__ == "__main__":
     print(json.dumps(run(), ensure_ascii=False, sort_keys=True, indent=2))
