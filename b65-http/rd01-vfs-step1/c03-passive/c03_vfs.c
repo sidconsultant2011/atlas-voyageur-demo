@@ -49,10 +49,57 @@ static int op(sqlite3_vfs*v,const char*z,sqlite3_file*f,int flags,int*out){
  else{free(w->inner);w->inner=0;}
  return result;
 }
+/* C03-R02: result of native xDelete and certainty of file attribution
+   are independent. No observation can rewrite a native SQLite result.
+   A closed historical incarnation not yet proven deleted remains a candidate. */
+static int deletion_events=0,delete_assigned=0,delete_ambiguous=0;
+static int delete_no_match=0,delete_failed=0,delete_unclosed=0;
+static int attribute_delete(const char*z,int native_result){
+ deletion_events++;
+ if(native_result!=SQLITE_OK){delete_failed++;return native_result;}
+ if(!z){delete_no_match++;return native_result;}
+ int candidate=-1,count=0;
+ for(int i=0;i<used;i++){
+  if(!rec[i].deleted && strcmp(rec[i].path,z)==0){
+   candidate=i;count++;
+  }
+ }
+ if(count==0){delete_no_match++;return native_result;}
+ if(count!=1){delete_ambiguous++;return native_result;}
+ /* xClose is a positive lifecycle signal, not a proof of inode identity.
+    Require one closed, otherwise still-open candidate for proof rejection. */
+ if(!rec[candidate].closed){delete_unclosed++;return native_result;}
+ rec[candidate].deleted=1;
+ delete_assigned++;
+ return native_result;
+}
 static int de(sqlite3_vfs*v,const char*z,int n){
- (void)v;int result=parent->xDelete(parent,z,n);
- if(z&&result==SQLITE_OK){for(int i=0;i<used;i++){if(strcmp(rec[i].path,z)==0&&!rec[i].deleted)rec[i].deleted=1;}}
- return result;
+ (void)v;
+ int result=parent->xDelete(parent,z,n);
+ return attribute_delete(z,result);
+}
+/* Test-only seams: replay synthetic lifecycle cases, without OS file deletion.
+   They exercise exactly the helper called AFTER the native xDelete callback. */
+void c03_test_reset(void){
+ for(int i=0;i<used;i++){free(rec[i].data);free(rec[i].present);}
+ memset(rec,0,sizeof(rec));used=0;overflow=0;
+ deletion_events=delete_assigned=delete_ambiguous=0;
+ delete_no_match=delete_failed=delete_unclosed=0;
+}
+int c03_test_open(const char*z,int kind,int closed){
+ int slot=record_open(z,kind);
+ if(slot>=0)rec[slot].closed=closed?1:0;
+ return slot;
+}
+int c03_test_delete(const char*z,int native_result){
+ return attribute_delete(z,native_result);
+}
+int c03_delete_stats(int*events,int*assigned,int*ambiguous,int*unmatched,int*failed,int*unclosed){
+ if(!events||!assigned||!ambiguous||!unmatched||!failed||!unclosed)return -1;
+ *events=deletion_events;*assigned=delete_assigned;
+ *ambiguous=delete_ambiguous;*unmatched=delete_no_match;
+ *failed=delete_failed;*unclosed=delete_unclosed;
+ return 0;
 }
 static int ac(sqlite3_vfs*v,const char*z,int n,int*out){(void)v;return parent->xAccess(parent,z,n,out);}
 static int fp(sqlite3_vfs*v,const char*z,int n,char*out){(void)v;return parent->xFullPathname(parent,z,n,out);}
