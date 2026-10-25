@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 from urllib.parse import quote
+from g03_trace_analysis import analyze_trace
 
 HERE=Path(__file__).resolve().parent
 
@@ -98,6 +99,9 @@ def run():
         if not {"sessions.sqlite","identities.sqlite"}.issubset(dbs):
             raise AssertionError("G02: main/attached DB not observed")
         if not journals: raise AssertionError("G02: rollback journal not observed")
+        g03=analyze_trace(trace)
+        if not g03["observations"]["two_databases"]:
+            raise AssertionError("G03: two SQLite databases not observed")
         manifest=capture(fixture,root/"capture_brute",root/"recuperation_travail")
         # Work-copy ONLY is opened for verification. Original raw data untouched.
         work=root/"recuperation_travail"
@@ -110,7 +114,7 @@ def run():
         if invariant!=[1,"fake"] or integrity!=["ok","ok"]: raise AssertionError("G05: invalid work-copy")
         if any(sha(root/"capture_brute"/e["name"])!=e["sha256"] for e in manifest):
             raise AssertionError("G05: raw archive changed")
-        proof={"environment":environment,
+        proof={"environment":environment,"G03":g03,
                 "G01":{"status":"demontre_dans_cet_environnement","same_engine":same},
                 "G02":{"status":"demontre_pour_ouvertures_observees","databases":sorted(dbs),
                        "journal_files":sorted(journals),
