@@ -5,7 +5,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "rd01-vfs-step1" / "c03-passive"))
-from c03_run import run, reciprocal_certificate, MAGIC, checksum
+from c03_run import run, reciprocal_certificate, validate_deletion_attribution, MAGIC, checksum
 
 MAIN = Path("/fictional/c03/sessions.sqlite")
 ATTACHED = Path("/fictional/c03/identities.sqlite")
@@ -29,6 +29,27 @@ def fictional_entries():
     return entries
 
 class C03Passive(unittest.TestCase):
+    def test_certificate_rejects_no_match_one_and_many(self):
+        baseline = {"ambiguous": 0, "no_match": 0, "native_errors": 0, "not_closed": 0}
+        for count in (1, 2):
+            with self.subTest(no_match=count):
+                values = dict(baseline, no_match=count)
+                with self.assertRaisesRegex(AssertionError, "deletion attribution incomplete"):
+                    validate_deletion_attribution(values)
+
+    def test_certificate_all_zero_is_accepted(self):
+        validate_deletion_attribution({
+            "ambiguous": 0, "no_match": 0, "native_errors": 0, "not_closed": 0
+        })
+
+    def test_certificate_keeps_other_rejections(self):
+        baseline = {"ambiguous": 0, "no_match": 0, "native_errors": 0, "not_closed": 0}
+        for field in ("ambiguous", "native_errors", "not_closed"):
+            with self.subTest(field=field):
+                values = dict(baseline, **{field: 1})
+                with self.assertRaises(AssertionError):
+                    validate_deletion_attribution(values)
+
     def test_normal_commit_real_sqlite(self):
         proof = run()
         self.assertEqual(proof["verdict"], "RECONSTRUIT_BANC_FICTIF")
