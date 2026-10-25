@@ -25,4 +25,14 @@ jobs:
       - name: Tests SQLite persistants hors ligne
         run: python3 -m unittest discover -s b65-sqlite -p 'test_*.py' -v
       - name: Tests façade HTTP locale hors ligne
+        env:
+          ATLAS_RD01_G05_OUTPUT: ${{ runner.temp }}/atlas-rd01-g05-evidence
         run: python3 -m unittest discover -s b65-http -p 'test_*.py' -v
+      - name: Publier preuves G05 fictives
+        uses: actions/upload-artifact@v4
+        with:
+          name: atlas-rd01-g05-${{ github.run_id }}
+          path: ${{ runner.temp }}/atlas-rd01-g05-evidence/
+          retention-days: 14
+          if-no-files-found: error
+          compression-level: 6
