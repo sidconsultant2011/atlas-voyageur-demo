@@ -2,6 +2,7 @@
 The binding exists in process memory only and is never a public login endpoint.
 """
 import hashlib, threading
+from sqlite_ac08 import verify_attached
 
 class LocalIdentityBridge:
     def __init__(self, identity_store):
@@ -73,6 +74,7 @@ class LocalIdentityBridge:
             # atomic multi-file COMMIT on the same local filesystem.
             with state.connect() as c:
                 c.execute("ATTACH DATABASE ? AS identity_db",(self.identities.path,))
+                verify_attached(c,state.path,self.identities.path)
                 c.execute("BEGIN IMMEDIATE")
                 status,_=state._authorize(c,session_cookie)
                 if status!=200:
