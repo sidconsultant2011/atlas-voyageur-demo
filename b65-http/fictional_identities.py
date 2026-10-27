@@ -3,19 +3,21 @@ Fictional test accounts only; no passwords, external identity provider or networ
 """
 import hashlib, secrets, sqlite3, time
 from pathlib import Path
+from sqlite_ac08 import open_qa_database
 
 class FictionalIdentityStore:
     def __init__(self,path,clock=None,ttl=900):
         self.path=str(Path(path));self.clock=clock or time.time;self.ttl=ttl
         if ttl<=0:raise ValueError("Invalid TTL")
+        self._initializing=True
         with self._db() as db:
             db.execute("PRAGMA foreign_keys=ON")
             db.execute("CREATE TABLE IF NOT EXISTS identities (id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)))")
             db.execute("CREATE TABLE IF NOT EXISTS identity_sessions (token_hash TEXT PRIMARY KEY, identity_id TEXT NOT NULL REFERENCES identities(id), expires REAL NOT NULL, revoked INTEGER NOT NULL DEFAULT 0)")
             db.execute("CREATE TABLE IF NOT EXISTS identity_journeys (id TEXT PRIMARY KEY, identity_id TEXT NOT NULL REFERENCES identities(id), label TEXT NOT NULL)")
+        self._initializing=False
     def _db(self):
-        db=sqlite3.connect(self.path,timeout=10)
-        db.execute("PRAGMA foreign_keys=ON")
+        db=open_qa_database(self.path, initialize=getattr(self,"_initializing",False), foreign_keys=True)
         return db
     @staticmethod
     def _hash(token):
