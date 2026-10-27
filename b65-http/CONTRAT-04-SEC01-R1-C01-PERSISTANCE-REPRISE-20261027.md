@@ -1,6 +1,6 @@
 # 04 — SEC-01 R1-C01 — Contrat documentaire de persistance SQLite et de reprise sécurisée
 
-**Version :** 1.0 — 27 octobre 2026  
+**Version :** 1.1 — 27 octobre 2026 (intégration de la matrice AC-01 à AC-14 réceptionnée par le 00)  
 **Nature :** contrat cible et constat de code, **non** validation d'implémentation ni qualification après panne.  
 **Mandat :** `DECISION-00-SEC01-R1-C01-REVUE-RESULTAT-20261027.md`.  
 **Base de lecture :** commit `c4225283d741266e8f7ca7ef5f11b83838b9b967`, branche `feature/b6-5-cartographie-interactive`.  
@@ -98,7 +98,36 @@ Le COMMIT du `with state.connect()` précède le retour d'une opération réussi
 | Garantie inter-hôtes | architecture locale SQLite | **NON APPLICABLE JUSTIFIÉ** au prototype ; aucune revendication possible |
 | Atomicité multi-bases pour simple retrait du pont mémoire | `revoke_binding` modifie dict seulement | **NON APPLICABLE JUSTIFIÉ** |
 
-## 7. Conclusion documentaire et vérification future unique
+## 7. Traçabilité formelle des quatorze exigences AC-01 à AC-14
+
+**Source opposable de la classification :** `b65-http/DECISION-00-SEC01-R1-C01-MATRICE-RECEPTION-20261027.md` au commit `e9a154956923c7ccef46eb2e8d2831c086c4ff44`. Le 00 y reçoit une matrice du chat 02 ; l'intégralité autonome de celle-ci n'est pas attestée comme fichier GitHub. Les statuts ci-dessous reproduisent le **périmètre de la décision de réception**, sans en étendre la portée.
+
+| ID | Qualification reçue | Exigence / frontière de conformité | Source, preuve et limite | Condition non acquise / décision ultérieure |
+|---|---|---|---|---|
+| AC-01 | DÉMONTRÉ dans la logique locale | Révocation prend effet logiquement au COMMIT sur `sessions.sqlite` | `PersistentSessionState.revoke` ; lecture statique ; durabilité physique non prouvée | Vérifier séparément persistance après incident |
+| AC-02 | DÉMONTRÉ dans le chemin normal | HTTP 200 seulement après COMMIT normal | `persistent_sessions.py`, `local_http_facade.py` ; pas de preuve de durabilité physique | Formaliser comportement d'erreur et accusé incertain |
+| AC-03 | DÉMONTRÉ sur chemins inspectés | Autorisation et mutation sous sérialisation SQLite locale | `BEGIN IMMEDIATE`, `_authorize` ; portée mono-environnement | Ne pas extrapoler à plusieurs hôtes |
+| AC-04 | DÉMONTRÉ structurellement | Contrôle session et identité au sein de `_persistent_journey` avec `ATTACH` | `local_identity_bridge.py` ; aucune preuve générale post-panne | Préconditions réelles d'atomicité inter-fichiers à qualifier |
+| AC-05 | DÉMONTRÉ sur scénarios bornés | Nouvelle requête protégée refusée après révocation confirmée | Recette HTTP concurrente CI n°218 ; scénarios non exhaustifs | Ne pas annoncer une garantie universelle |
+| AC-06 | DÉMONTRÉ sur scénario borné | Mutation légitime validée avant révocation permise | CI n°218 ; ordre COMMIT inféré, non sondé nativement | Respecter la frontière temporelle du contrat métier |
+| AC-07 | DÉMONTRÉ dans prototype local | Pas de réassociation implicite après redémarrage | `LocalIdentityBridge._bindings` en mémoire ; prototype fictif | Ne pas assimiler à reprise sécurisée d'une base endommagée |
+| AC-08 | PARTIEL | Journal rollback et synchronisation appropriée pour opérations avec deux fichiers | `DELETE` et `FULL` observés sur RD01 seulement ; pas imposés à toutes connexions | Imposer/contrôler journalisation effective, exclusions WAL applicables et paramètres SQLite |
+| AC-09 | PARTIEL | Stockage compatible avec les garanties revendiquées | Banc Linux et même périphérique caractérisés ; futur hébergement non qualifié | Documenter fichiers sur disque, FS, fsync, topologie et support |
+| AC-10 | PARTIEL | Récupération AVANT ou APRÈS pour effets effectivement couplés | RD01 : 15 cas, cinq points externes ; pas d'interruption interne COMMIT | Qualification résiduelle non autorisée à ce stade |
+| AC-11 | PARTIEL | Révocation confirmée opposable après redémarrage ou incident | Fonctionnement normal et tests locaux ; panne OS/stockage non qualifiée | Perte après HTTP 200 est état interdit du contrat cible |
+| AC-12 | NON DÉMONTRÉ | Détecter incohérence de sécurité et refuser par défaut les mutations | Aucune preuve générale fail-closed sur récupération incohérente | Définir contrôle de reprise, arrêt/refus et traces sans secrets avant exploitation |
+| AC-13 | PARTIEL | Erreurs SQLite / COMMIT traitées en HTTP sans succès abusif | Le retour 200 normal est post-transaction ; gestion uniforme d'erreurs non attestée | Spécifier codes, gestion des erreurs et réponse en cas d'issue COMMIT incertaine |
+| AC-14 | NON DÉMONTRÉ, hors périmètre local actuel | Cohérence entre hôtes indépendants si topologie future l'exige | Aucune preuve inter-hôtes ; SQLite local du prototype | Choix explicite de topologie et contrat distinct avant extension |
+
+**Bilan reçu :** 7 démontrées dans leur périmètre (AC-01 à AC-07), 5 partielles (AC-08 à AC-11 et AC-13), 2 non démontrées (AC-12 et AC-14). **R1-C01 demeure PARTIEL ; récupération globale NON CONCLUANTE.**
+
+**Précision déterminante de l'invariant :** dans `_persistent_journey`, une lecture dans `sessions.sqlite` suivie d'une écriture dans `identities.sqlite` ne crée pas automatiquement deux écritures à conserver conjointement. La mutation éventuelle de `request_events` est un effet séparé de suivi du débit : il faut vérifier la règle métier avant de qualifier d'interdit un état de récupération où seuls ces événements diffèrent. À l'inverse, dans la fixture RD01, révocation et insertion sont **explicitement** les deux effets contractuellement couplés du témoin ; ce montage ne représente pas la révocation HTTP normale.
+
+**Conditions préalables à une future exploitation (exigences cibles, non mesures actuellement en place) :** enregistrer et faire respecter le mode de journalisation et la synchronisation effectifs de chaque connexion ; garantir les hypothèses de base principale sur disque et de `ATTACH` compatibles avec le mode d'atomicité revendiqué ; caractériser stockage local, système de fichiers, topologie et sémantique de synchronisation ; maîtriser les erreurs COMMIT, le refus sécurisé et la récupération sans réassociation automatique. Aucune de ces conditions ne transforme les contrôles du banc RD01 en garantie après panne.
+
+**Risques résiduels à arbitrer :** perte d'une révocation pourtant confirmée, validation métier postérieure illicite à sa prise d'effet, récupération incohérente non détectée, réponse HTTP ambiguë lors d'une erreur COMMIT, et déploiement ultérieur sur stockage/topologie non qualifiés. Il s'agit de **risques conditionnels**, non d'anomalies observées.
+
+## 8. Conclusion documentaire et vérification future unique
 
 **Contrat formalisé et traçable — verdict sur la qualification de récupération : NON CONCLUANT.** Le point de validation logique de révocation HTTP et la distinction avec le pont `ATTACH` sont identifiés. Les garanties de configuration, de durabilité physique, de reprise en panne et de refus sécurisé **ne sont pas démontrées**.
 
@@ -108,4 +137,4 @@ Le COMMIT du `with state.connect()` précède le retour d'une opération réussi
 
 ## Résultat à remonter au 00
 
-Chantier : contrat documentaire R1-C01, à partir du commit source `c4225283`. Résultat : matrice et invariants formalisés ; aucune qualification de panne supplémentaire. Décision attendue : réception du présent contrat et arbitrage éventuel, distinct, de l'unique audit statique proposé. **Prochaine action : réception documentaire par le chat 00.**
+Chantier : contrat documentaire R1-C01, à partir du commit source `c4225283` et de la réception de matrice `e9a15495`. Résultat : matrice et invariants formalisés ; aucune qualification de panne supplémentaire. Décision attendue : réception du présent contrat et arbitrage éventuel, distinct, de l'unique audit statique proposé. **Prochaine action : réception documentaire par le chat 00.**
