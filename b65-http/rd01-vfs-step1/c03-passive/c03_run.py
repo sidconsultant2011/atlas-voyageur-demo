@@ -21,15 +21,36 @@ def checksum(name):
     # Somme des octets de la référence UTF-8, vérifiée dans le profil testé.
     return sum(name) & 0xffffffff
 
+def validate_fragment_structure(entry):
+    """C03-R06 lot 2 : couple d'octets observés et masque binaire cohérents."""
+    if not isinstance(entry, dict):
+        raise AssertionError("C03-R06: fragment entry invalid")
+    data, mask = entry.get("data"), entry.get("mask")
+    if type(data) is not bytes or type(mask) is not bytes:
+        raise AssertionError("C03-R06: data/mask must be bytes")
+    if len(data) != len(mask):
+        raise AssertionError("C03-R06: data/mask length mismatch")
+    if any(marker not in (0, 1) for marker in mask):
+        raise AssertionError("C03-R06: nonbinary presence marker")
+    return data, mask
+
+
+def _observed_slice(data, mask, start, end):
+    """La tranche doit exister intégralement et être marquée présente (1)."""
+    if not (0 <= start < end <= len(data)) or any(x != 1 for x in mask[start:end]):
+        return False
+    return True
+
+
 def _pointer_offsets(j, supername, page_size):
     """Indices des références complètes, validées à partir des octets observés."""
-    data, mask = j["data"], j["mask"]
+    data, mask = validate_fragment_structure(j)
     offsets = []
     for i in range(4, len(data)-len(supername)-16+1):
         if data[i:i+len(supername)] != supername:
             continue
         start, end = i-4, i+len(supername)+16
-        if not all(mask[start:end]):
+        if not _observed_slice(data, mask, start, end):
             continue
         if be32(data[start:i]) != 0x40000000 // page_size + 1:
             continue
@@ -56,6 +77,8 @@ def validate_close_evidence(entry):
 
 def reciprocal_certificate(entries, main_path, attached_path, page_size):
     """C03-R01: une incarnation prouvée par journal, sans max(generation)."""
+    for entry in entries:
+        validate_fragment_structure(entry)
     supers = [r for r in entries if r["kind"] == 2]
     if len(supers) != 1:
         raise AssertionError("C03: super-journal absent ou multiple")
@@ -64,7 +87,7 @@ def reciprocal_certificate(entries, main_path, attached_path, page_size):
         raise AssertionError("C03: suppression S absente")
     for entry in entries:
         validate_close_evidence(entry)
-    if not all(s["mask"]) or not s["data"].endswith(b"\x00"):
+    if not _observed_slice(s["data"], s["mask"], 0, len(s["data"])) or not s["data"].endswith(b"\x00"):
         raise AssertionError("C03: lacune dans les écritures de S")
     listed = s["data"][:-1].split(b"\x00")
     if len(listed) != 2 or len(set(listed)) != 2:
@@ -81,7 +104,7 @@ def reciprocal_certificate(entries, main_path, attached_path, page_size):
         jname = name.encode()
         soffsets = [i for i in range(len(s["data"])-len(jname))
                     if s["data"][i:i+len(jname)] == jname and
-                    s["data"][i+len(jname)] == 0 and all(s["mask"][i:i+len(jname)+1])]
+                    s["data"][i+len(jname)] == 0 and _observed_slice(s["data"], s["mask"], i, i+len(jname)+1)]
         if len(soffsets) != 1:
             raise AssertionError("C03: S->" + role + " non unique")
 
