@@ -2,7 +2,7 @@
 The binding exists in process memory only and is never a public login endpoint.
 """
 import hashlib, threading
-from sqlite_ac08 import verify_attached
+from sqlite_ac08 import require_existing_disk, verify_attached
 
 class LocalIdentityBridge:
     def __init__(self, identity_store):
@@ -73,6 +73,7 @@ class LocalIdentityBridge:
             # Both databases use their default rollback-journal mode, allowing
             # atomic multi-file COMMIT on the same local filesystem.
             with state.connect() as c:
+                require_existing_disk(self.identities.path)
                 c.execute("ATTACH DATABASE ? AS identity_db",(self.identities.path,))
                 verify_attached(c,state.path,self.identities.path)
                 c.execute("BEGIN IMMEDIATE")
