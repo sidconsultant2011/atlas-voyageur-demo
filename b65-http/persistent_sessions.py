@@ -3,6 +3,7 @@ Offline-only model; not production authentication.
 """
 import hashlib, secrets, sqlite3, threading, time
 from pathlib import Path
+from sqlite_ac08 import open_qa_database
 
 class PersistentSessionState:
     def __init__(self,path,clock=None,ttl_seconds=900,rate_limit=8,window_seconds=60):
@@ -11,13 +12,15 @@ class PersistentSessionState:
         if type(rate_limit) is not int or rate_limit<1 or window_seconds<=0:raise ValueError('Invalid rate policy')
         self.rate_limit=rate_limit;self.window_seconds=window_seconds
         if ttl_seconds<=0:raise ValueError("Invalid TTL")
+        self._initializing=True
         with self.connect() as c:
             c.execute("CREATE TABLE IF NOT EXISTS sessions (id_hash TEXT PRIMARY KEY, csrf_hash TEXT NOT NULL, expires REAL NOT NULL, revoked INTEGER NOT NULL DEFAULT 0, CHECK(revoked IN (0,1)))")
             c.execute("CREATE TABLE IF NOT EXISTS request_events (id_hash TEXT NOT NULL, timestamp REAL NOT NULL)")
             c.execute("CREATE INDEX IF NOT EXISTS request_events_session_time ON request_events(id_hash,timestamp)")
             c.execute("CREATE TABLE IF NOT EXISTS journeys (id TEXT PRIMARY KEY, owner_hash TEXT NOT NULL, label TEXT NOT NULL, version INTEGER NOT NULL)")
+        self._initializing=False
     def connect(self):
-        c=sqlite3.connect(self.path,timeout=10)
+        c=open_qa_database(self.path, initialize=getattr(self,"_initializing",False))
         c.execute("PRAGMA busy_timeout=10000")
         return c
     @staticmethod
