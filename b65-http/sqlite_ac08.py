@@ -63,6 +63,15 @@ def open_qa_database(path, *, initialize=False, foreign_keys=False):
         raise
 
 
+
+def require_existing_disk(path):
+    """Avant ATTACH : interdire la création implicite d'un fichier manquant."""
+    target = _disk_path(path)
+    if not target.is_file():
+        raise SQLitePreconditionError("AC08_DATABASE_MISSING")
+    return target
+
+
 def verify_attached(connection, main_path, identity_path):
     """Appeler immédiatement après ATTACH, impérativement avant BEGIN IMMEDIATE."""
     main, attached = _disk_path(main_path), _disk_path(identity_path)
