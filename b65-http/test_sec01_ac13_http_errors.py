@@ -141,9 +141,13 @@ class AC13HTTPErrorBoundary(unittest.TestCase):
         ]
         for operation, method, route, body in cases:
             with self.subTest(operation=operation, method=method):
-                self.state.inject = operation + ":precondition"
+                if operation == "create_journey":
+                    self.bridge.inject = "create:precondition"
+                else:
+                    self.state.inject = operation + ":precondition"
                 self.assert_503(self.request(method, route, body), "STORAGE_PRECONDITION_FAILED")
                 self.state.inject = None
+                self.bridge.inject = None
 
     def test_sqlite_errors_on_all_protected_routes(self):
         cases = [
@@ -156,9 +160,13 @@ class AC13HTTPErrorBoundary(unittest.TestCase):
         ]
         for operation, method, route, body in cases:
             with self.subTest(operation=operation):
-                self.state.inject = operation
+                if operation == "create_journey":
+                    self.bridge.inject = "create"
+                else:
+                    self.state.inject = operation
                 self.assert_503(self.request(method, route, body), "STORAGE_UNAVAILABLE")
                 self.state.inject = None
+                self.bridge.inject = None
 
     def test_check_failure_prevents_bridge_delegation(self):
         self.state.inject = "check"
@@ -190,11 +198,19 @@ class AC13HTTPErrorBoundary(unittest.TestCase):
             ("create_journey", "/api/v1/qa/journeys", {}),
         ):
             with self.subTest(op=op):
-                self.state.inject = op + ":commit"
+                if op == "create_journey":
+                    self.bridge.inject = "create:commit"
+                else:
+                    self.state.inject = op + ":commit"
                 before = len(self.state.calls)
+                before_bridge = len(self.bridge.calls)
                 self.assert_503(self.request("POST", route, body), "STORAGE_UNAVAILABLE")
-                self.assertEqual(self.state.calls[before:].count(op), 1)
+                if op == "create_journey":
+                    self.assertEqual(self.bridge.calls[before_bridge:].count("create"), 1)
+                else:
+                    self.assertEqual(self.state.calls[before:].count(op), 1)
                 self.state.inject = None
+                self.bridge.inject = None
 
     def test_business_refusals_preserved(self):
         result = self.request("POST", "/api/v1/qa/session/revoke", csrf=False)
