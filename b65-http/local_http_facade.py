@@ -1,5 +1,7 @@
 """B6.5 QA-only loopback HTTP facade. Standard library, no outbound requests."""
-import json, secrets, threading, time
+import json, secrets, sqlite3, threading, time
+from functools import wraps
+from sqlite_ac08 import SQLitePreconditionError
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from http.cookies import SimpleCookie
 from urllib.parse import urlsplit
@@ -67,6 +69,8 @@ def create_server(*,port=0,host="127.0.0.1",state=None,identity_bridge=None):
         def log_message(self,*args):pass
         def send_json(self,status,payload,extra=None):
             raw=json.dumps(payload).encode()
+            # The HTTP response cannot be replaced once headers start.
+            self._ac13_response_started=True
             self.send_response(status)
             self.send_header("Content-Type","application/json; charset=utf-8")
             self.send_header("Content-Length",str(len(raw)))
@@ -170,6 +174,25 @@ def create_server(*,port=0,host="127.0.0.1",state=None,identity_bridge=None):
             deleted=identity_bridge.delete(self.cookies(),jid) if identity_bridge else state.remove_journey(self.cookies(),jid)
             if not deleted:return self.fail(404,"NOT_FOUND")
             return self.send_json(200,{"status":"ok","data":{"deleted":True}})
+    def protect_sqlite_http(method):
+        """Translate only SQLite errors, never double-send after headers."""
+        @wraps(method)
+        def guarded(self,*args,**kwargs):
+            self._ac13_response_started=False
+            try:
+                return method(self,*args,**kwargs)
+            except SQLitePreconditionError:
+                if self._ac13_response_started:
+                    raise
+                return self.fail(503,"STORAGE_PRECONDITION_FAILED")
+            except sqlite3.Error:
+                if self._ac13_response_started:
+                    raise
+                return self.fail(503,"STORAGE_UNAVAILABLE")
+        return guarded
+
+    for verb in ("do_POST","do_GET","do_DELETE"):
+        setattr(Handler,verb,protect_sqlite_http(getattr(Handler,verb)))
     return ThreadingHTTPServer((host,port),Handler)
 
 if __name__=="__main__":
